@@ -1,0 +1,23 @@
+{
+    "name": "對帳轉檔小幫手",
+    "short_name": "對帳轉檔",
+    "start_url": ".",
+    "display": "standalone",
+    "background_color": "#6366F1",
+    "theme_color": "#6366F1",
+    "description": "將對帳排班文字轉換為 Excel 可用格式的實用工具",
+    "orientation": "portrait-primary",
+    "prefer_related_applications": false,
+    "icons": [
+        {
+            "src": "icons/Icon-192.png",
+            "sizes": "192x192",
+            "type": "image/png"
+        },
+        {
+            "src": "icons/Icon-512.png",
+            "sizes": "512x512",
+            "type": "image/png"
+        }
+    ]
+}
