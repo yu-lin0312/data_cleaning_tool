@@ -260,6 +260,27 @@
         function convertName(name) { const trimmed = name.trim(); return preservedNames.includes(trimmed) ? trimmed : (nameMapping[trimmed] || trimmed); }
         function formatTime(timeStr) { let cleaned = timeStr.replace(/[:\s]/g, ''); if (cleaned.length === 1) return '0' + cleaned + '00'; if (cleaned.length === 2) return cleaned + '00'; if (cleaned.length === 3) return '0' + cleaned; if (cleaned.length === 4) return cleaned; return timeStr; }
 
+        function normalizeWorkContent(content) {
+            if (/返主/.test(content)) return { amount: 1000, needsManualCheck: false };
+            if (/晉塔|進塔/.test(content)) return { amount: 1000, needsManualCheck: false };
+            if (/顧spa/i.test(content)) return { amount: 500, needsManualCheck: false };
+            if (/招待/.test(content)) return { amount: 1200, needsManualCheck: false };
+            if (/教會出殯/.test(content)) return { amount: 1200, needsManualCheck: false };
+
+            // Standard Items
+            if (/扶棺/.test(content) && !/禮生/.test(content)) return { amount: 700, needsManualCheck: false };
+            if (/入殮扛夫/.test(content) || (/入殮/.test(content) && /扛夫/.test(content))) return { amount: 1700, needsManualCheck: false };
+            if (/入殮火化|入殮送火/.test(content)) return { amount: 1000, needsManualCheck: false };
+            if (/入殮出殯/.test(content) || (/入殮/.test(content) && /出殯/.test(content))) return { amount: 1700, needsManualCheck: false };
+            if (/禮生扶棺|禮生扛棺/.test(content)) return { amount: 1500, needsManualCheck: false };
+            if (/禮生出殯/.test(content)) return { amount: 1400, needsManualCheck: false };
+            if (/禮生/.test(content) && !/出殯|扶棺|扛棺/.test(content)) return { amount: 1000, needsManualCheck: false };
+            if (/入殮/.test(content) && !/出殯|扛夫|火化|送火/.test(content)) return { amount: 1000, needsManualCheck: false };
+            if (/出殯/.test(content) && !/入殮|禮生|回洗/.test(content)) return { amount: 1200, needsManualCheck: false };
+
+            return { amount: 0, needsManualCheck: true };
+        }) ();
+
         calculationCache.set(cacheKey, result);
         return result;
         }
