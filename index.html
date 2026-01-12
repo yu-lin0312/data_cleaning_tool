@@ -231,7 +231,8 @@
     <script>
         // Data Configuration
         const projectVendors = ['松佑', '尚閔', '龍霖', '銘棋', '高盛', '龍圓', '新光人生', '采邑', '鴻德', '祐安', '和榕', '協和', '上德', '高誠', '公庭', '福祥', '出云', '恆善蔡嘉薇', '群豐東昇', '南華靜觀', '南都', '榮祥', '南華'];
-        const locationTypoFixes = { '人本': '仁本' };
+        const locationTypoFixes = { '人本': '仁本', '橋殯': '橋頭殯儀館', '會館': '龍巖會館' };
+        const vendorTypoFixes = { '新光': '新光人生' };
         const nameMapping = {
             '勳': '王健勳', '健勳': '王健勳', '千': '林千智', '千智': '林千智', '黑': '郭育帆', '小黑': '郭育帆',
             '潘': '潘信安', '小潘': '潘信安', '魚': '謝瑋育', '鮪魚': '謝瑋育', '郭': '郭鴻億', '小郭': '郭鴻億',
@@ -257,6 +258,7 @@
         // Helper Functions
         function isProjectVendor(vendor) { return vendor && projectVendors.some(pv => vendor.includes(pv)); }
         function fixLocationTypo(location) { if (!location) return location; let fixed = location; for (const [typo, correct] of Object.entries(locationTypoFixes)) fixed = fixed.replace(typo, correct); return fixed; }
+        function fixVendorTypo(vendor) { if (!vendor) return vendor; let fixed = vendor; for (const [typo, correct] of Object.entries(vendorTypoFixes)) fixed = fixed.replace(typo, correct); return fixed; }
         function convertName(name) { const trimmed = name.trim(); return preservedNames.includes(trimmed) ? trimmed : (nameMapping[trimmed] || trimmed); }
         function formatTime(timeStr) { let cleaned = timeStr.replace(/[:\s]/g, ''); if (cleaned.length === 1) return '0' + cleaned + '00'; if (cleaned.length === 2) return cleaned + '00'; if (cleaned.length === 3) return '0' + cleaned; if (cleaned.length === 4) return cleaned; return timeStr; }
 
@@ -294,8 +296,8 @@
             if (!timeMatch) return null;
             const time = formatTime(timeMatch[1]);
             const parts = timeMatch[2].split(/\s+/);
-            if (parts.length >= 3) return { time, location: fixLocationTypo(parts[0]), vendor: parts[1], workContent: normalizeWorkContent(parts.slice(2).join('')) };
-            if (parts.length === 2) return { time, location: fixLocationTypo(parts[0]), vendor: parts[1], workContent: '' };
+            if (parts.length >= 3) return { time, location: fixLocationTypo(parts[0]), vendor: fixVendorTypo(parts[1]), workContent: normalizeWorkContent(parts.slice(2).join('')) };
+            if (parts.length === 2) return { time, location: fixLocationTypo(parts[0]), vendor: fixVendorTypo(parts[1]), workContent: '' };
             return { time, location: fixLocationTypo(timeMatch[2]), vendor: '', workContent: '' };
         }
 
