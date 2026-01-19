@@ -60,6 +60,9 @@
                     <h2 class="text-lg font-medium text-slate-700 flex items-center gap-2">
                         <i data-lucide="file-text" class="w-5 h-5 text-indigo-500"></i>
                         貼上原始資料
+                        <span id="inputCountBadge"
+                            class="hidden text-xs bg-slate-100 text-slate-500 px-3 py-1 rounded-full font-medium">0
+                            筆</span>
                     </h2>
                 </div>
                 <div class="p-6 flex-1 flex flex-col space-y-4">
@@ -270,6 +273,7 @@
             normalized = normalized.replace(/禮扶/g, '禮生扶棺');
             normalized = normalized.replace(/禮扛/g, '禮生扛棺');
             normalized = normalized.replace(/入冰/g, '入殮退冰');
+            normalized = normalized.replace(/午夜(?!功德)/g, '午夜功德');
             return normalized;
         }
 
@@ -335,7 +339,7 @@
                 if (/入殮/.test(content) && /出殯/.test(content) && /禮生/.test(content)) return { amount: 1900, needsManualCheck: false };
 
                 // Main Items
-                if (/午夜功德/.test(content)) return { amount: 2000, needsManualCheck: false };
+                if (/午夜功德|午夜/.test(content)) return { amount: 2000, needsManualCheck: false };
                 if (/換罐樹葬/.test(content)) return { amount: 2000, needsManualCheck: false };
                 if (/半日功德|半日燒庫|^半日$/.test(content)) return { amount: 1000, needsManualCheck: false };
                 if (/佛教藥懺/.test(content)) return { amount: 500, needsManualCheck: false };
@@ -422,7 +426,10 @@
             const copyBtn = document.getElementById('copyBtn');
             const downloadCsvBtn = document.getElementById('downloadCsvBtn');
 
-            input.addEventListener('input', () => parseBtn.disabled = !input.value.trim());
+            input.addEventListener('input', () => {
+                parseBtn.disabled = !input.value.trim();
+                updateInputCount();
+            });
 
             parseBtn.addEventListener('click', () => {
                 const startTime = performance.now();
@@ -446,6 +453,7 @@
                 filteredData = [];
                 nameFilter.value = '';
                 parseBtn.disabled = true;
+                updateInputCount();
                 updateUIState();
             });
 
@@ -476,6 +484,20 @@
             vendorList.innerHTML = projectVendors.map(v =>
                 `<span class="px-2 py-1 bg-slate-100 rounded text-slate-600 border border-slate-200">${v}</span>`
             ).join('');
+        }
+
+        function updateInputCount() {
+            const text = document.getElementById('inputText').value;
+            const lines = text.split('\n');
+            const count = lines.filter(line => isScheduleLine(line)).length;
+            const badge = document.getElementById('inputCountBadge');
+
+            if (count > 0) {
+                badge.textContent = `${count} 筆`;
+                badge.classList.remove('hidden');
+            } else {
+                badge.classList.add('hidden');
+            }
         }
 
         function filterData() {
