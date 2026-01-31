@@ -150,7 +150,17 @@ function parseScheduleData(text) {
 
     for (let line of lines) {
         if (isSeparatorLine(line)) continue;
-        if (isDateLine(line)) { const m = line.trim().match(/(\d{1,2})\/(\d{1,2})/); if (m) currentDate = `2025/${m[1].padStart(2, '0')}/${m[2].padStart(2, '0')}`; lastSchedule = null; currentCaseName = ''; currentRitualist = ''; continue; }
+        if (isDateLine(line)) {
+            const m = line.trim().match(/(\d{1,2})\/(\d{1,2})/);
+            if (m) {
+                const currentYear = new Date().getFullYear();
+                currentDate = `${currentYear}/${m[1].padStart(2, '0')}/${m[2].padStart(2, '0')}`;
+            }
+            lastSchedule = null;
+            currentCaseName = '';
+            currentRitualist = '';
+            continue;
+        }
         if (isScheduleLine(line)) {
             const p = parseScheduleLine(line);
             if (p) {
