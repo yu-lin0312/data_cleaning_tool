@@ -186,6 +186,24 @@ function calculateAmount(workContent, vendor = '', location = '') {
     return result;
 }
 
+function splitNamesAndWork(text) {
+    if (!text) return { names: [], extraWork: '' };
+    const parts = text.trim().split(/\s+/);
+    const names = [];
+    const rest = [];
+
+    for (const part of parts) {
+        // 檢查這個詞是否在對照表中 (縮寫或全名) 或在保留名單中
+        const isKnownName = nameMapping[part] || Object.values(nameMapping).includes(part) || preservedNames.includes(part);
+        if (isKnownName) {
+            names.push(part);
+        } else {
+            rest.push(part);
+        }
+    }
+    return { names, extraWork: rest.join(' ') };
+}
+
 function parseScheduleData(text) {
     const lines = text.split('\n'), results = [];
     let currentDate = '', lastSchedule = null, currentCaseName = '', currentRitualist = '';
@@ -207,13 +225,25 @@ function parseScheduleData(text) {
             // 判斷日期後面是否還有工作內容 (範本2格式："2/1 06:30橋殯 邑威 出殯")
             const afterDate = trimmedLine.replace(/^\d{1,2}\/\d{1,2}\s*/, '').trim();
             if (afterDate && isScheduleLine(afterDate)) {
-                // 同行有工作，繼續解析
                 const p = parseScheduleLine(afterDate);
                 if (p) {
-                    lastSchedule = { date: currentDate, startTime: p.time, location: p.location, vendor: p.vendor.replace(/[哥姐]/g, ''), workContent: p.workContent };
+                    // 檢查工作內容中是否夾雜人名 (如 "10:00 靜心7松佑 玲 魚 黑 入出")
+                    const { names, extraWork } = splitNamesAndWork(p.workContent);
+                    const finalWorkContent = extraWork || p.workContent;
+
+                    lastSchedule = { date: currentDate, startTime: p.time, location: p.location, vendor: p.vendor.replace(/[哥姐]/g, ''), workContent: normalizeWorkContent(finalWorkContent) };
+
+                    // 如果工作內容中就直接有人名，直接處理掉
+                    if (names.length > 0) {
+                        for (let name of names) {
+                            const fullName = convertName(name);
+                            const { amount, needsManualCheck } = calculateAmount(lastSchedule.workContent, lastSchedule.vendor, lastSchedule.location);
+                            results.push({ date: lastSchedule.date, name: fullName, startTime: lastSchedule.startTime, location: lastSchedule.location, vendor: lastSchedule.vendor, workContent: lastSchedule.workContent, amount: amount.toString(), paymentStatus: '未收', notes: '', amount2: amount.toString() });
+                        }
+                        lastSchedule = null;
+                    }
                 }
             } else {
-                // 純日期行，重置狀態
                 lastSchedule = null;
                 currentCaseName = '';
                 currentRitualist = '';
@@ -224,7 +254,20 @@ function parseScheduleData(text) {
         if (isScheduleLine(line)) {
             const p = parseScheduleLine(line);
             if (p) {
-                lastSchedule = { date: currentDate, startTime: p.time, location: p.location, vendor: p.vendor.replace(/[哥姐]/g, ''), workContent: p.workContent };
+                // 同樣檢查夾雜人名的情況
+                const { names, extraWork } = splitNamesAndWork(p.workContent);
+                const finalWorkContent = extraWork || p.workContent;
+
+                lastSchedule = { date: currentDate, startTime: p.time, location: p.location, vendor: p.vendor.replace(/[哥姐]/g, ''), workContent: normalizeWorkContent(finalWorkContent) };
+
+                if (names.length > 0) {
+                    for (let name of names) {
+                        const fullName = convertName(name);
+                        const { amount, needsManualCheck } = calculateAmount(lastSchedule.workContent, lastSchedule.vendor, lastSchedule.location);
+                        results.push({ date: lastSchedule.date, name: fullName, startTime: lastSchedule.startTime, location: lastSchedule.location, vendor: lastSchedule.vendor, workContent: lastSchedule.workContent, amount: amount.toString(), paymentStatus: '未收', notes: '', amount2: amount.toString() });
+                    }
+                    lastSchedule = null;
+                }
                 currentCaseName = '';
                 currentRitualist = '';
             }
@@ -232,17 +275,27 @@ function parseScheduleData(text) {
         }
         if (isCaseNameLine(line)) { currentCaseName = line.trim().replace(/^案名[：:]/, '').trim(); continue; }
         if (isRitualistLine(line)) { currentRitualist = line.trim().replace(/^禮儀師[：:]/, '').trim(); continue; }
+
         if (isNamesLine(line) && lastSchedule) {
-            const names = line.trim().split(/\s+/).filter(n => n);
-            for (let name of names) {
-                const fullName = convertName(name);
-                const { amount, needsManualCheck } = calculateAmount(lastSchedule.workContent, lastSchedule.vendor, lastSchedule.location);
-                let notes = currentRitualist || currentCaseName || '';
-                if (needsManualCheck) notes = (notes ? notes + '；' : '') + '需人工確認金額';
-                if (isProjectVendor(lastSchedule.vendor)) notes = (notes ? notes + '；' : '') + '專案';
-                results.push({ date: lastSchedule.date, name: fullName, startTime: lastSchedule.startTime, location: lastSchedule.location, vendor: lastSchedule.vendor, workContent: lastSchedule.workContent, amount: amount.toString(), paymentStatus: '未收', notes: notes, amount2: amount.toString() });
+            // 使用 splitNamesAndWork 拆分人名與其後可能接的工作內容
+            const { names, extraWork } = splitNamesAndWork(line.trim());
+
+            // 如果有額外的工作內容，合併到目前的 schedule 中
+            if (extraWork) {
+                lastSchedule.workContent = normalizeWorkContent(lastSchedule.workContent + ' ' + extraWork);
             }
-            lastSchedule = null;
+
+            if (names.length > 0) {
+                for (let name of names) {
+                    const fullName = convertName(name);
+                    const { amount, needsManualCheck } = calculateAmount(lastSchedule.workContent, lastSchedule.vendor, lastSchedule.location);
+                    let notes = currentRitualist || currentCaseName || '';
+                    if (needsManualCheck) notes = (notes ? notes + '；' : '') + '需人工確認金額';
+                    if (isProjectVendor(lastSchedule.vendor)) notes = (notes ? notes + '；' : '') + '專案';
+                    results.push({ date: lastSchedule.date, name: fullName, startTime: lastSchedule.startTime, location: lastSchedule.location, vendor: lastSchedule.vendor, workContent: lastSchedule.workContent, amount: amount.toString(), paymentStatus: '未收', notes: notes, amount2: amount.toString() });
+                }
+                lastSchedule = null;
+            }
         }
     }
     return results;
