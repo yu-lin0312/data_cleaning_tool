@@ -43,14 +43,21 @@ function normalizeWorkContent(content) {
     return normalized;
 }
 
-function isDateLine(line) { return /^\d{1,2}\/\d{1,2}\s*$/.test(line.trim()); }
+// 判斷是否為「日期開頭行」(可能後面接著工作內容，如 "2/1 06:30橋殯 邑威 出殯")
+function isDateLine(line) { return /^\d{1,2}\/\d{1,2}/.test(line.trim()); }
+// 單純只有日期，沒有工作內容
+function isPureDateLine(line) { return /^\d{1,2}\/\d{1,2}\s*$/.test(line.trim()); }
 function isSeparatorLine(line) { return /^[-—─]+$/.test(line.trim()) || line.trim() === ''; }
 function isScheduleLine(line) {
     const trimmed = line.trim();
+    // 略過星號備註行 (例：*采邑185 接體 14:30)
+    if (trimmed.startsWith('*')) return false;
     // 格式一：時間在前 (11:00 龍圓 岡山 接體)
     if (/^\d{1,2}[:\s]?\d{0,2}\s+/.test(trimmed)) return true;
     // 格式二：時間在後 (龍圓 岡山 接體 11:00)
     if (/\s\d{1,2}[:\s]?\d{2}\s*$/.test(trimmed)) return true;
+    // 格式三：廠商→時間→地點→工作 (松佑 13:30 靜心10 半日)
+    if (/^[\u4e00-\u9fa5]+\s+\d{1,2}[:\s]?\d{2}\s+/.test(trimmed)) return true;
     return false;
 }
 function isCaseNameLine(line) { return line.trim().startsWith('案名：') || line.trim().startsWith('案名:'); }
@@ -74,10 +81,12 @@ function parseScheduleLine(line) {
     const frontMatch = trimmed.match(/^(\d{1,2}[:\s]?\d{0,2})\s+(.+)$/);
     if (frontMatch) {
         const time = formatTime(frontMatch[1]);
-        const parts = frontMatch[2].split(/\s+/);
+        const rest = frontMatch[2];
+        // 處理時間後面緊黏地點的情況 (如 06:30橋殯 → 時間=06:30, rest=橋殯 ...)
+        const parts = rest.split(/\s+/);
         if (parts.length >= 3) return { time, location: fixLocationTypo(parts[0]), vendor: fixVendorTypo(parts[1]), workContent: normalizeWorkContent(parts.slice(2).join('')) };
         if (parts.length === 2) return { time, location: fixLocationTypo(parts[0]), vendor: fixVendorTypo(parts[1]), workContent: '' };
-        return { time, location: fixLocationTypo(frontMatch[2]), vendor: '', workContent: '' };
+        return { time, location: fixLocationTypo(rest), vendor: '', workContent: '' };
     }
 
     // 格式二：時間在後 → 龍圓 岡山 接體 11:00
@@ -88,6 +97,17 @@ function parseScheduleLine(line) {
         if (parts.length >= 3) return { time, location: fixLocationTypo(parts[0]), vendor: fixVendorTypo(parts[1]), workContent: normalizeWorkContent(parts.slice(2).join('')) };
         if (parts.length === 2) return { time, location: fixLocationTypo(parts[0]), vendor: fixVendorTypo(parts[1]), workContent: '' };
         return { time, location: fixLocationTypo(backMatch[1]), vendor: '', workContent: '' };
+    }
+
+    // 格式三：廠商→時間→地點→工作 → 松佑 13:30 靜心10 半日
+    const vendorFirstMatch = trimmed.match(/^([\u4e00-\u9fa5]+)\s+(\d{1,2}[:\s]?\d{2})\s+(.+)$/);
+    if (vendorFirstMatch) {
+        const vendor = fixVendorTypo(vendorFirstMatch[1]);
+        const time = formatTime(vendorFirstMatch[2]);
+        const parts = vendorFirstMatch[3].split(/\s+/);
+        const location = fixLocationTypo(parts[0]);
+        const workContent = normalizeWorkContent(parts.slice(1).join(''));
+        return { time, location, vendor, workContent };
     }
 
     return null;
@@ -172,17 +192,35 @@ function parseScheduleData(text) {
 
     for (let line of lines) {
         if (isSeparatorLine(line)) continue;
+
+        // 略過星號備註行 (如 *采邑185 接體 14:30)
+        if (line.trim().startsWith('*')) continue;
+
         if (isDateLine(line)) {
-            const m = line.trim().match(/(\d{1,2})\/(\d{1,2})/);
+            const trimmedLine = line.trim();
+            const m = trimmedLine.match(/(\d{1,2})\/(\d{1,2})/);
             if (m) {
                 const currentYear = new Date().getFullYear();
                 currentDate = `${currentYear}/${m[1].padStart(2, '0')}/${m[2].padStart(2, '0')}`;
             }
-            lastSchedule = null;
-            currentCaseName = '';
-            currentRitualist = '';
+
+            // 判斷日期後面是否還有工作內容 (範本2格式："2/1 06:30橋殯 邑威 出殯")
+            const afterDate = trimmedLine.replace(/^\d{1,2}\/\d{1,2}\s*/, '').trim();
+            if (afterDate && isScheduleLine(afterDate)) {
+                // 同行有工作，繼續解析
+                const p = parseScheduleLine(afterDate);
+                if (p) {
+                    lastSchedule = { date: currentDate, startTime: p.time, location: p.location, vendor: p.vendor.replace(/[哥姐]/g, ''), workContent: p.workContent };
+                }
+            } else {
+                // 純日期行，重置狀態
+                lastSchedule = null;
+                currentCaseName = '';
+                currentRitualist = '';
+            }
             continue;
         }
+
         if (isScheduleLine(line)) {
             const p = parseScheduleLine(line);
             if (p) {
