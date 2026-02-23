@@ -45,7 +45,14 @@ function normalizeWorkContent(content) {
 
 function isDateLine(line) { return /^\d{1,2}\/\d{1,2}\s*$/.test(line.trim()); }
 function isSeparatorLine(line) { return /^[-—─]+$/.test(line.trim()) || line.trim() === ''; }
-function isScheduleLine(line) { return /^\d{1,2}[:\s]?\d{0,2}\s+/.test(line.trim()); }
+function isScheduleLine(line) {
+    const trimmed = line.trim();
+    // 格式一：時間在前 (11:00 龍圓 岡山 接體)
+    if (/^\d{1,2}[:\s]?\d{0,2}\s+/.test(trimmed)) return true;
+    // 格式二：時間在後 (龍圓 岡山 接體 11:00)
+    if (/\s\d{1,2}[:\s]?\d{2}\s*$/.test(trimmed)) return true;
+    return false;
+}
 function isCaseNameLine(line) { return line.trim().startsWith('案名：') || line.trim().startsWith('案名:'); }
 function isRitualistLine(line) { return line.trim().startsWith('禮儀師：') || line.trim().startsWith('禮儀師:'); }
 
@@ -62,13 +69,28 @@ function isNamesLine(line) {
 
 function parseScheduleLine(line) {
     const trimmed = line.trim();
-    const timeMatch = trimmed.match(/^(\d{1,2}[:\s]?\d{0,2})\s+(.+)$/);
-    if (!timeMatch) return null;
-    const time = formatTime(timeMatch[1]);
-    const parts = timeMatch[2].split(/\s+/);
-    if (parts.length >= 3) return { time, location: fixLocationTypo(parts[0]), vendor: fixVendorTypo(parts[1]), workContent: normalizeWorkContent(parts.slice(2).join('')) };
-    if (parts.length === 2) return { time, location: fixLocationTypo(parts[0]), vendor: fixVendorTypo(parts[1]), workContent: '' };
-    return { time, location: fixLocationTypo(timeMatch[2]), vendor: '', workContent: '' };
+
+    // 格式一：時間在前 → 11:00 龍圓 岡山 接體
+    const frontMatch = trimmed.match(/^(\d{1,2}[:\s]?\d{0,2})\s+(.+)$/);
+    if (frontMatch) {
+        const time = formatTime(frontMatch[1]);
+        const parts = frontMatch[2].split(/\s+/);
+        if (parts.length >= 3) return { time, location: fixLocationTypo(parts[0]), vendor: fixVendorTypo(parts[1]), workContent: normalizeWorkContent(parts.slice(2).join('')) };
+        if (parts.length === 2) return { time, location: fixLocationTypo(parts[0]), vendor: fixVendorTypo(parts[1]), workContent: '' };
+        return { time, location: fixLocationTypo(frontMatch[2]), vendor: '', workContent: '' };
+    }
+
+    // 格式二：時間在後 → 龍圓 岡山 接體 11:00
+    const backMatch = trimmed.match(/^(.+)\s+(\d{1,2}[:\s]?\d{2})\s*$/);
+    if (backMatch) {
+        const time = formatTime(backMatch[2]);
+        const parts = backMatch[1].split(/\s+/);
+        if (parts.length >= 3) return { time, location: fixLocationTypo(parts[0]), vendor: fixVendorTypo(parts[1]), workContent: normalizeWorkContent(parts.slice(2).join('')) };
+        if (parts.length === 2) return { time, location: fixLocationTypo(parts[0]), vendor: fixVendorTypo(parts[1]), workContent: '' };
+        return { time, location: fixLocationTypo(backMatch[1]), vendor: '', workContent: '' };
+    }
+
+    return null;
 }
 
 const calculationCache = new Map();
