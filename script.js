@@ -84,7 +84,7 @@ function parseScheduleLine(line) {
         const rest = frontMatch[2];
         // 處理時間後面緊黏地點的情況 (如 06:30橋殯 → 時間=06:30, rest=橋殯 ...)
         const parts = rest.split(/\s+/);
-        if (parts.length >= 3) return { time, location: fixLocationTypo(parts[0]), vendor: fixVendorTypo(parts[1]), workContent: normalizeWorkContent(parts.slice(2).join('')) };
+        if (parts.length >= 3) return { time, location: fixLocationTypo(parts[0]), vendor: fixVendorTypo(parts[1]), workContent: normalizeWorkContent(parts.slice(2).join(' ')) };
         if (parts.length === 2) return { time, location: fixLocationTypo(parts[0]), vendor: fixVendorTypo(parts[1]), workContent: '' };
         return { time, location: fixLocationTypo(rest), vendor: '', workContent: '' };
     }
@@ -94,7 +94,7 @@ function parseScheduleLine(line) {
     if (backMatch) {
         const time = formatTime(backMatch[2]);
         const parts = backMatch[1].split(/\s+/);
-        if (parts.length >= 3) return { time, location: fixLocationTypo(parts[0]), vendor: fixVendorTypo(parts[1]), workContent: normalizeWorkContent(parts.slice(2).join('')) };
+        if (parts.length >= 3) return { time, location: fixLocationTypo(parts[0]), vendor: fixVendorTypo(parts[1]), workContent: normalizeWorkContent(parts.slice(2).join(' ')) };
         if (parts.length === 2) return { time, location: fixLocationTypo(parts[0]), vendor: fixVendorTypo(parts[1]), workContent: '' };
         return { time, location: fixLocationTypo(backMatch[1]), vendor: '', workContent: '' };
     }
@@ -106,7 +106,7 @@ function parseScheduleLine(line) {
         const time = formatTime(vendorFirstMatch[2]);
         const parts = vendorFirstMatch[3].split(/\s+/);
         const location = fixLocationTypo(parts[0]);
-        const workContent = normalizeWorkContent(parts.slice(1).join(''));
+        const workContent = normalizeWorkContent(parts.slice(1).join(' '));
         return { time, location, vendor, workContent };
     }
 
