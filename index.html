@@ -14,7 +14,7 @@
 <body class="min-h-screen bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 pb-12">
     <div class="container mx-auto px-4 py-8 max-w-[1600px]">
         <!-- Header -->
-        <div class="text-center mb-10">
+        <div class="text-center mb-6">
             <h1 class="text-3xl md:text-4xl font-light text-slate-800 tracking-wide mb-3">
                 對帳轉檔小幫手
             </h1>
@@ -23,186 +23,385 @@
             </p>
         </div>
 
-        <div class="grid lg:grid-cols-12 gap-6">
-            <!-- Input Section (Left, smaller) -->
-            <div
-                class="lg:col-span-4 glass-card rounded-xl transition-all duration-300 hover:shadow-2xl flex flex-col h-[800px]">
-                <div class="p-6 border-b border-slate-200/50">
-                    <h2 class="text-lg font-medium text-slate-700 flex items-center gap-2">
-                        <i data-lucide="file-text" class="w-5 h-5 text-indigo-500"></i>
-                        貼上原始資料
-                        <span id="inputCountBadge"
-                            class="hidden text-xs bg-slate-100 text-slate-500 px-3 py-1 rounded-full font-medium">0
-                            筆</span>
-                    </h2>
+        <!-- Tab 切換列 -->
+        <div class="flex justify-center mb-8">
+            <div class="inline-flex bg-white/60 backdrop-blur-sm rounded-xl p-1.5 border border-slate-200/50 shadow-sm">
+                <button id="tabBtnConvert" class="tab-btn tab-btn-active" onclick="switchTab('convert')">
+                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
+                        <polyline points="14 2 14 8 20 8" />
+                    </svg>
+                    資料轉換
+                </button>
+                <button id="tabBtnReconcile" class="tab-btn" onclick="switchTab('reconcile')">
+                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M16 3h5v5" />
+                        <path d="M8 3H3v5" />
+                        <path d="M12 22v-8.3a4 4 0 0 0-1.172-2.872L3 3" />
+                        <path d="m15 9 6-6" />
+                    </svg>
+                    月底校對
+                </button>
+            </div>
+        </div>
+
+        <!-- ==================== Tab 1: 資料轉換 ==================== -->
+        <div id="tab-convert">
+            <div class="grid lg:grid-cols-12 gap-6">
+                <!-- Input Section (Left, smaller) -->
+                <div
+                    class="lg:col-span-4 glass-card rounded-xl transition-all duration-300 hover:shadow-2xl flex flex-col h-[800px]">
+                    <div class="p-6 border-b border-slate-200/50">
+                        <h2 class="text-lg font-medium text-slate-700 flex items-center gap-2">
+                            <i data-lucide="file-text" class="w-5 h-5 text-indigo-500"></i>
+                            貼上原始資料
+                            <span id="inputCountBadge"
+                                class="hidden text-xs bg-slate-100 text-slate-500 px-3 py-1 rounded-full font-medium">0
+                                筆</span>
+                        </h2>
+                    </div>
+                    <div class="p-6 flex-1 flex flex-col space-y-4">
+                        <textarea id="inputText"
+                            placeholder="請將排班文字貼在這裡...&#10;&#10;範例格式：&#10;11/21&#10;06:00 仁本 高雄聖恩 禮生出殯&#10;案名：林寬泰&#10;立軒&#10;&#10;08:30 北門 台南聖恩 禮生出殯&#10;鮪魚 至鈞&#10;——&#10;11/22&#10;..."
+                            class="w-full flex-1 p-4 bg-white/50 border border-slate-200/50 rounded-md text-slate-700 placeholder:text-slate-400 resize-none font-mono text-sm focus:border-indigo-300 focus:ring-2 focus:ring-indigo-200 outline-none custom-scrollbar"></textarea>
+                        <div class="flex gap-3">
+                            <button id="parseBtn" disabled
+                                class="flex-1 bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600 text-white py-3 px-4 rounded-lg transition-all duration-300 shadow-lg flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed font-medium tracking-wide">
+                                <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                                開始轉換
+                            </button>
+                            <button id="clearBtn"
+                                class="border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-slate-700 py-3 px-4 rounded-lg transition-colors flex items-center justify-center">
+                                <i data-lucide="trash-2" class="w-4 h-4"></i>
+                            </button>
+                        </div>
+                    </div>
                 </div>
-                <div class="p-6 flex-1 flex flex-col space-y-4">
-                    <textarea id="inputText"
-                        placeholder="請將排班文字貼在這裡...&#10;&#10;範例格式：&#10;11/21&#10;06:00 仁本 高雄聖恩 禮生出殯&#10;案名：林寬泰&#10;立軒&#10;&#10;08:30 北門 台南聖恩 禮生出殯&#10;鮪魚 至鈞&#10;——&#10;11/22&#10;..."
-                        class="w-full flex-1 p-4 bg-white/50 border border-slate-200/50 rounded-md text-slate-700 placeholder:text-slate-400 resize-none font-mono text-sm focus:border-indigo-300 focus:ring-2 focus:ring-indigo-200 outline-none custom-scrollbar"></textarea>
-                    <div class="flex gap-3">
-                        <button id="parseBtn" disabled
-                            class="flex-1 bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600 text-white py-3 px-4 rounded-lg transition-all duration-300 shadow-lg flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed font-medium tracking-wide">
-                            <i data-lucide="arrow-right" class="w-4 h-4"></i>
-                            開始轉換
-                        </button>
-                        <button id="clearBtn"
-                            class="border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-slate-700 py-3 px-4 rounded-lg transition-colors flex items-center justify-center">
-                            <i data-lucide="trash-2" class="w-4 h-4"></i>
-                        </button>
+
+                <!-- Output Section (Right, larger) -->
+                <div
+                    class="lg:col-span-8 glass-card rounded-xl transition-all duration-300 hover:shadow-2xl flex flex-col h-[800px]">
+                    <div class="p-6 border-b border-slate-200/50 flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <h2 class="text-lg font-medium text-slate-700 flex items-center gap-2">
+                                <i data-lucide="table-2" class="w-5 h-5 text-indigo-500"></i>
+                                轉換結果
+                            </h2>
+                            <span id="countBadge"
+                                class="hidden text-xs bg-indigo-100 text-indigo-600 px-3 py-1 rounded-full font-medium">0
+                                筆</span>
+                        </div>
+
+                        <div id="actionButtons" class="hidden flex gap-3 items-center">
+                            <div class="relative group">
+                                <i data-lucide="search"
+                                    class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors"></i>
+                                <input type="text" id="nameFilter" placeholder="搜尋..."
+                                    class="pl-9 pr-4 py-2 text-sm bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300 outline-none w-48 transition-all">
+                            </div>
+                            <div class="h-6 w-px bg-slate-200 mx-1"></div>
+                            <button id="downloadCsvBtn"
+                                class="bg-white hover:bg-slate-50 text-slate-600 border border-slate-200 py-2 px-4 rounded-lg text-sm flex items-center gap-2 transition-all shadow-sm font-medium">
+                                <i data-lucide="download" class="w-4 h-4"></i>
+                                CSV
+                            </button>
+                            <button id="copyBtn"
+                                class="bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600 text-white py-2 px-4 rounded-lg text-sm flex items-center gap-2 transition-all shadow-md hover:shadow-lg font-medium">
+                                <i data-lucide="copy" class="w-4 h-4"></i>
+                                複製
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="p-0 flex-1 flex flex-col overflow-hidden bg-white/40">
+                        <div id="emptyState" class="flex-1 flex flex-col items-center justify-center text-slate-400">
+                            <div class="w-16 h-16 mb-4 rounded-2xl bg-slate-100 flex items-center justify-center">
+                                <i data-lucide="clipboard-list" class="w-8 h-8 text-slate-300"></i>
+                            </div>
+                            <p class="text-center">
+                                轉換後的資料會顯示在這裡<br />
+                                <span class="text-sm opacity-70">可直接複製貼到 Excel</span>
+                            </p>
+                        </div>
+
+                        <div id="resultContainer" class="hidden flex-1 overflow-auto custom-scrollbar">
+                            <table class="w-full text-left border-collapse">
+                                <thead class="bg-slate-50/90 sticky top-0 backdrop-blur-sm z-10 shadow-sm">
+                                    <tr>
+                                        <th class="p-4 text-sm font-medium text-indigo-500 whitespace-nowrap">日期</th>
+                                        <th class="p-4 text-sm font-medium text-indigo-500 whitespace-nowrap">姓名</th>
+                                        <th class="p-4 text-sm font-medium text-indigo-500 whitespace-nowrap">開始時間</th>
+                                        <th class="p-4 text-sm font-medium text-indigo-500 whitespace-nowrap">地點</th>
+                                        <th class="p-4 text-sm font-medium text-indigo-500 whitespace-nowrap">廠商/單位</th>
+                                        <th class="p-4 text-sm font-medium text-indigo-500 whitespace-nowrap">工作內容</th>
+                                        <th class="p-4 text-sm font-medium text-indigo-500 whitespace-nowrap">金額</th>
+                                        <th class="p-4 text-sm font-medium text-indigo-500 whitespace-nowrap">收款狀態</th>
+                                        <th class="p-4 text-sm font-medium text-indigo-500 whitespace-nowrap">備註</th>
+                                        <th class="p-4 text-sm font-medium text-indigo-500 whitespace-nowrap">金額2</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="resultBody" class="divide-y divide-slate-100"></tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Output Section (Right, larger) -->
-            <div
-                class="lg:col-span-8 glass-card rounded-xl transition-all duration-300 hover:shadow-2xl flex flex-col h-[800px]">
-                <div class="p-6 border-b border-slate-200/50 flex items-center justify-between">
-                    <div class="flex items-center gap-3">
-                        <h2 class="text-lg font-medium text-slate-700 flex items-center gap-2">
-                            <i data-lucide="table-2" class="w-5 h-5 text-indigo-500"></i>
-                            轉換結果
-                        </h2>
-                        <span id="countBadge"
-                            class="hidden text-xs bg-indigo-100 text-indigo-600 px-3 py-1 rounded-full font-medium">0
-                            筆</span>
-                    </div>
+            <!-- Rules Section -->
+            <div class="mt-8 glass-card rounded-xl p-6">
+                <h3 class="text-slate-700 font-medium mb-6 flex items-center gap-2">
+                    <i data-lucide="settings-2" class="w-5 h-5 text-indigo-500"></i>
+                    轉換規則設定
+                </h3>
 
-                    <div id="actionButtons" class="hidden flex gap-3 items-center">
-                        <div class="relative group">
-                            <i data-lucide="search"
-                                class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors"></i>
-                            <input type="text" id="nameFilter" placeholder="搜尋..."
-                                class="pl-9 pr-4 py-2 text-sm bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300 outline-none w-48 transition-all">
+                <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <!-- 姓名對照 -->
+                    <div class="bg-white/60 rounded-xl p-5 border border-slate-100 shadow-sm">
+                        <div class="flex items-center gap-2 mb-4">
+                            <div class="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center text-blue-600">
+                                <i data-lucide="users" class="w-4 h-4"></i>
+                            </div>
+                            <p class="font-medium text-slate-700">姓名對照</p>
                         </div>
-                        <div class="h-6 w-px bg-slate-200 mx-1"></div>
-                        <button id="downloadCsvBtn"
-                            class="bg-white hover:bg-slate-50 text-slate-600 border border-slate-200 py-2 px-4 rounded-lg text-sm flex items-center gap-2 transition-all shadow-sm font-medium">
-                            <i data-lucide="download" class="w-4 h-4"></i>
-                            CSV
-                        </button>
-                        <button id="copyBtn"
-                            class="bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600 text-white py-2 px-4 rounded-lg text-sm flex items-center gap-2 transition-all shadow-md hover:shadow-lg font-medium">
-                            <i data-lucide="copy" class="w-4 h-4"></i>
-                            複製
-                        </button>
+                        <div id="nameMappingList" class="grid grid-cols-2 gap-x-4 gap-y-2 text-xs text-slate-600"></div>
                     </div>
-                </div>
 
-                <div class="p-0 flex-1 flex flex-col overflow-hidden bg-white/40">
-                    <div id="emptyState" class="flex-1 flex flex-col items-center justify-center text-slate-400">
-                        <div class="w-16 h-16 mb-4 rounded-2xl bg-slate-100 flex items-center justify-center">
-                            <i data-lucide="clipboard-list" class="w-8 h-8 text-slate-300"></i>
+                    <!-- 主項金額 -->
+                    <div class="bg-white/60 rounded-xl p-5 border border-slate-100 shadow-sm">
+                        <div class="flex items-center gap-2 mb-4">
+                            <div
+                                class="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center text-emerald-600">
+                                <i data-lucide="dollar-sign" class="w-4 h-4"></i>
+                            </div>
+                            <p class="font-medium text-slate-700">主項金額</p>
                         </div>
-                        <p class="text-center">
-                            轉換後的資料會顯示在這裡<br />
-                            <span class="text-sm opacity-70">可直接複製貼到 Excel</span>
-                        </p>
+                        <div id="mainFeeList" class="space-y-2 text-xs text-slate-600"></div>
                     </div>
 
-                    <div id="resultContainer" class="hidden flex-1 overflow-auto custom-scrollbar">
-                        <table class="w-full text-left border-collapse">
-                            <thead class="bg-slate-50/90 sticky top-0 backdrop-blur-sm z-10 shadow-sm">
-                                <tr>
-                                    <th class="p-4 text-sm font-medium text-indigo-500 whitespace-nowrap">日期</th>
-                                    <th class="p-4 text-sm font-medium text-indigo-500 whitespace-nowrap">姓名</th>
-                                    <th class="p-4 text-sm font-medium text-indigo-500 whitespace-nowrap">開始時間</th>
-                                    <th class="p-4 text-sm font-medium text-indigo-500 whitespace-nowrap">地點</th>
-                                    <th class="p-4 text-sm font-medium text-indigo-500 whitespace-nowrap">廠商/單位</th>
-                                    <th class="p-4 text-sm font-medium text-indigo-500 whitespace-nowrap">工作內容</th>
-                                    <th class="p-4 text-sm font-medium text-indigo-500 whitespace-nowrap">金額</th>
-                                    <th class="p-4 text-sm font-medium text-indigo-500 whitespace-nowrap">收款狀態</th>
-                                    <th class="p-4 text-sm font-medium text-indigo-500 whitespace-nowrap">備註</th>
-                                    <th class="p-4 text-sm font-medium text-indigo-500 whitespace-nowrap">金額2</th>
-                                </tr>
-                            </thead>
-                            <tbody id="resultBody" class="divide-y divide-slate-100"></tbody>
-                        </table>
+                    <!-- 法事/其他 -->
+                    <div class="bg-white/60 rounded-xl p-5 border border-slate-100 shadow-sm">
+                        <div class="flex items-center gap-2 mb-4">
+                            <div
+                                class="w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center text-amber-600">
+                                <i data-lucide="sparkles" class="w-4 h-4"></i>
+                            </div>
+                            <p class="font-medium text-slate-700">法事/其他</p>
+                        </div>
+                        <div id="otherFeeList" class="space-y-2 text-xs text-slate-600"></div>
+                    </div>
+
+                    <!-- 特殊規則 + 專案 -->
+                    <div class="space-y-6">
+                        <!-- 聖恩龍巖特殊規則 -->
+                        <div class="bg-white/60 rounded-xl p-5 border border-slate-100 shadow-sm">
+                            <div class="flex items-center gap-2 mb-4">
+                                <div
+                                    class="w-8 h-8 rounded-lg bg-purple-100 flex items-center justify-center text-purple-600">
+                                    <i data-lucide="star" class="w-4 h-4"></i>
+                                </div>
+                                <p class="font-medium text-slate-700 text-sm">聖恩/龍巖</p>
+                            </div>
+                            <div class="space-y-2 text-xs text-slate-600">
+                                <div class="flex justify-between items-center"><span>台南禮生出殯</span><span
+                                        class="font-semibold text-slate-800 bg-slate-100 px-2 py-0.5 rounded">1500</span>
+                                </div>
+                                <div class="flex justify-between items-center"><span>高雄禮生出殯</span><span
+                                        class="font-semibold text-slate-800 bg-slate-100 px-2 py-0.5 rounded">1400</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 專案業主 -->
+                        <div class="bg-white/60 rounded-xl p-5 border border-slate-100 shadow-sm">
+                            <div class="flex items-center gap-2 mb-4">
+                                <div
+                                    class="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-600">
+                                    <i data-lucide="building-2" class="w-4 h-4"></i>
+                                </div>
+                                <p class="font-medium text-slate-700 text-sm">專案業主</p>
+                            </div>
+                            <div id="projectVendorList" class="flex flex-wrap gap-1.5 text-xs"></div>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- Rules Section -->
-        <div class="mt-8 glass-card rounded-xl p-6">
-            <h3 class="text-slate-700 font-medium mb-6 flex items-center gap-2">
-                <i data-lucide="settings-2" class="w-5 h-5 text-indigo-500"></i>
-                轉換規則設定
-            </h3>
-
-            <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <!-- 姓名對照 -->
-                <div class="bg-white/60 rounded-xl p-5 border border-slate-100 shadow-sm">
-                    <div class="flex items-center gap-2 mb-4">
-                        <div class="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center text-blue-600">
-                            <i data-lucide="users" class="w-4 h-4"></i>
-                        </div>
-                        <p class="font-medium text-slate-700">姓名對照</p>
+        <!-- ==================== Tab 2: 月底校對 ==================== -->
+        <div id="tab-reconcile" class="hidden">
+            <!-- 輸入區：左右並列 -->
+            <div class="grid lg:grid-cols-2 gap-6 mb-6">
+                <!-- 左側：基準資料 -->
+                <div class="glass-card rounded-xl transition-all duration-300 hover:shadow-2xl flex flex-col h-[420px]">
+                    <div class="p-5 border-b border-slate-200/50">
+                        <h2 class="text-lg font-medium text-slate-700 flex items-center gap-2">
+                            <svg class="w-5 h-5 text-indigo-500" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M12 20h9" />
+                                <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+                            </svg>
+                            基準資料
+                            <span class="text-xs text-slate-400 font-normal">（從 Excel 貼上）</span>
+                        </h2>
                     </div>
-                    <div id="nameMappingList" class="grid grid-cols-2 gap-x-4 gap-y-2 text-xs text-slate-600"></div>
-                </div>
-
-                <!-- 主項金額 -->
-                <div class="bg-white/60 rounded-xl p-5 border border-slate-100 shadow-sm">
-                    <div class="flex items-center gap-2 mb-4">
-                        <div
-                            class="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center text-emerald-600">
-                            <i data-lucide="dollar-sign" class="w-4 h-4"></i>
-                        </div>
-                        <p class="font-medium text-slate-700">主項金額</p>
-                    </div>
-                    <div id="mainFeeList" class="space-y-2 text-xs text-slate-600"></div>
-                </div>
-
-                <!-- 法事/其他 -->
-                <div class="bg-white/60 rounded-xl p-5 border border-slate-100 shadow-sm">
-                    <div class="flex items-center gap-2 mb-4">
-                        <div class="w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center text-amber-600">
-                            <i data-lucide="sparkles" class="w-4 h-4"></i>
-                        </div>
-                        <p class="font-medium text-slate-700">法事/其他</p>
-                    </div>
-                    <div id="otherFeeList" class="space-y-2 text-xs text-slate-600"></div>
-                </div>
-
-                <!-- 特殊規則 + 專案 -->
-                <div class="space-y-6">
-                    <!-- 聖恩龍巖特殊規則 -->
-                    <div class="bg-white/60 rounded-xl p-5 border border-slate-100 shadow-sm">
-                        <div class="flex items-center gap-2 mb-4">
-                            <div
-                                class="w-8 h-8 rounded-lg bg-purple-100 flex items-center justify-center text-purple-600">
-                                <i data-lucide="star" class="w-4 h-4"></i>
-                            </div>
-                            <p class="font-medium text-slate-700 text-sm">聖恩/龍巖</p>
-                        </div>
-                        <div class="space-y-2 text-xs text-slate-600">
-                            <div class="flex justify-between items-center"><span>台南禮生出殯</span><span
-                                    class="font-semibold text-slate-800 bg-slate-100 px-2 py-0.5 rounded">1500</span>
-                            </div>
-                            <div class="flex justify-between items-center"><span>高雄禮生出殯</span><span
-                                    class="font-semibold text-slate-800 bg-slate-100 px-2 py-0.5 rounded">1400</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- 專案業主 -->
-                    <div class="bg-white/60 rounded-xl p-5 border border-slate-100 shadow-sm">
-                        <div class="flex items-center gap-2 mb-4">
-                            <div
-                                class="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-600">
-                                <i data-lucide="building-2" class="w-4 h-4"></i>
-                            </div>
-                            <p class="font-medium text-slate-700 text-sm">專案業主</p>
-                        </div>
-                        <div id="projectVendorList" class="flex flex-wrap gap-1.5 text-xs"></div>
+                    <div class="p-5 flex-1 flex flex-col">
+                        <textarea id="reconcileBaseText"
+                            placeholder="從 Excel 複製整列貼上（支援不貼表頭）&#10;&#10;若不貼表頭，預設順序為：&#10;日期、姓名、地點、工作內容、金額、開始時間"
+                            class="w-full flex-1 p-4 bg-white/50 border border-slate-200/50 rounded-md text-slate-700 placeholder:text-slate-400 resize-none font-mono text-xs focus:border-indigo-300 focus:ring-2 focus:ring-indigo-200 outline-none custom-scrollbar"></textarea>
                     </div>
                 </div>
+
+                <!-- 右側：月底回報 -->
+                <div class="glass-card rounded-xl transition-all duration-300 hover:shadow-2xl flex flex-col h-[420px]">
+                    <div class="p-5 border-b border-slate-200/50">
+                        <h2 class="text-lg font-medium text-slate-700 flex items-center gap-2">
+                            <svg class="w-5 h-5 text-emerald-500" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                                <circle cx="9" cy="7" r="4" />
+                                <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+                                <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                            </svg>
+                            月底回報
+                            <span class="text-xs text-slate-400 font-normal">（同事回報單）</span>
+                        </h2>
+                    </div>
+                    <div class="p-5 flex-1 flex flex-col">
+                        <textarea id="reconcileReportText"
+                            placeholder="從 Excel 複製整列貼上（格式同左側）&#10;&#10;可直接從「資料轉換」結果表格複製貼上"
+                            class="w-full flex-1 p-4 bg-white/50 border border-slate-200/50 rounded-md text-slate-700 placeholder:text-slate-400 resize-none font-mono text-xs focus:border-indigo-300 focus:ring-2 focus:ring-indigo-200 outline-none custom-scrollbar"></textarea>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 操作按鈕列 -->
+            <div class="flex justify-center gap-4 mb-6">
+                <button id="reconcileBtn" disabled
+                    class="bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600 text-white py-3 px-8 rounded-lg transition-all duration-300 shadow-lg flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed font-medium tracking-wide">
+                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M16 3h5v5" />
+                        <path d="M8 3H3v5" />
+                        <path d="M12 22v-8.3a4 4 0 0 0-1.172-2.872L3 3" />
+                        <path d="m15 9 6-6" />
+                    </svg>
+                    開始校對
+                </button>
+                <button id="reconcileClearBtn"
+                    class="border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-slate-700 py-3 px-6 rounded-lg transition-colors flex items-center justify-center gap-2">
+                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M3 6h18" />
+                        <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
+                        <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+                    </svg>
+                    清除
+                </button>
+            </div>
+
+            <!-- 校對結果 -->
+            <div id="reconcileResultSection" class="hidden">
+                <!-- 統計摘要 -->
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                    <div class="glass-card rounded-xl p-4 text-center">
+                        <div class="text-2xl font-semibold text-blue-500" id="statExtra">0</div>
+                        <div class="text-xs text-slate-500 mt-1">漏單（月底少報）</div>
+                    </div>
+                    <div class="glass-card rounded-xl p-4 text-center">
+                        <div class="text-2xl font-semibold text-amber-500" id="statDiff">0</div>
+                        <div class="text-xs text-slate-500 mt-1">差異（金額/時間不符）</div>
+                    </div>
+                    <div class="glass-card rounded-xl p-4 text-center">
+                        <div class="text-2xl font-semibold text-red-500" id="statMissing">0</div>
+                        <div class="text-xs text-slate-500 mt-1">多報（基準未見）</div>
+                    </div>
+                    <div class="glass-card rounded-xl p-4 text-center">
+                        <div class="text-2xl font-semibold text-emerald-500" id="statMatch">0</div>
+                        <div class="text-xs text-slate-500 mt-1">正確</div>
+                    </div>
+                </div>
+
+                <!-- 說明 + 複製按鈕列 -->
+                <div class="flex items-center justify-between mb-4 px-1">
+                    <p class="text-xs text-slate-400">以左側基準資料為準，標示月底回報（右側）的差異狀況</p>
+                    <button id="reconcileCopyBtn"
+                        class="bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600 text-white py-2 px-5 rounded-lg text-sm flex items-center gap-2 transition-all shadow-md hover:shadow-lg font-medium">
+                        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                            stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                        </svg>
+                        複製差異清單（貼到 Excel）
+                    </button>
+                </div>
+
+                <!-- 過濾標籤 -->
+                <div class="flex gap-2 mb-4 flex-wrap">
+                    <button class="filter-chip filter-chip-active" data-filter="problem"
+                        onclick="toggleReconcileFilter(this)">
+                        <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                            stroke-linecap="round" stroke-linejoin="round">
+                            <path
+                                d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                            <line x1="12" y1="9" x2="12" y2="13" />
+                            <line x1="12" y1="17" x2="12.01" y2="17" />
+                        </svg>
+                        異常項目
+                    </button>
+                    <button class="filter-chip" data-filter="under_reported" onclick="toggleReconcileFilter(this)">
+                        <span class="status-dot status-dot-extra"></span>
+                        漏單
+                    </button>
+                    <button class="filter-chip" data-filter="diff" onclick="toggleReconcileFilter(this)">
+                        <span class="status-dot status-dot-diff"></span>
+                        差異
+                    </button>
+                    <button class="filter-chip" data-filter="over_reported" onclick="toggleReconcileFilter(this)">
+                        <span class="status-dot status-dot-missing"></span>
+                        多報
+                    </button>
+                    <button class="filter-chip" data-filter="match" onclick="toggleReconcileFilter(this)">
+                        <span class="status-dot status-dot-match"></span>
+                        正確
+                    </button>
+                    <button class="filter-chip" data-filter="all" onclick="toggleReconcileFilter(this)">
+                        全部
+                    </button>
+                </div>
+
+                <!-- 結果表格 -->
+                <div class="glass-card rounded-xl overflow-hidden">
+                    <div class="overflow-auto custom-scrollbar max-h-[600px]">
+                        <table class="w-full text-left border-collapse">
+                            <thead class="bg-slate-50/90 sticky top-0 backdrop-blur-sm z-10 shadow-sm">
+                                <tr>
+                                    <th class="p-3 text-xs font-medium text-indigo-500 whitespace-nowrap">狀態</th>
+                                    <th class="p-3 text-xs font-medium text-indigo-500 whitespace-nowrap">日期</th>
+                                    <th class="p-3 text-xs font-medium text-indigo-500 whitespace-nowrap">姓名</th>
+                                    <th class="p-3 text-xs font-medium text-indigo-500 whitespace-nowrap">地點</th>
+                                    <th class="p-3 text-xs font-medium text-indigo-500 whitespace-nowrap">工作內容</th>
+                                    <th class="p-3 text-xs font-medium text-indigo-500 whitespace-nowrap">基準金額</th>
+                                    <th class="p-3 text-xs font-medium text-indigo-500 whitespace-nowrap">回報金額</th>
+                                    <th class="p-3 text-xs font-medium text-indigo-500 whitespace-nowrap">基準時間</th>
+                                    <th class="p-3 text-xs font-medium text-indigo-500 whitespace-nowrap">回報時間</th>
+                                    <th class="p-3 text-xs font-medium text-indigo-500 whitespace-nowrap">說明</th>
+                                </tr>
+                            </thead>
+                            <tbody id="reconcileResultBody" class="divide-y divide-slate-100"></tbody>
+                        </table>
+                    </div>
+                </div>
+                <!-- 複製成功提示 -->
+                <div id="reconcileCopySuccess" class="hidden mt-3 text-center text-sm text-emerald-600 font-medium">
+                    已複製！請直接貼到 Excel</div>
             </div>
         </div>
     </div>
 
     <script src="script.js"></script>
+    <script src="reconcile.js"></script>
 </body>
 
 </html>
