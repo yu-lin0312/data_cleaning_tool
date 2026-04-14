@@ -16,7 +16,7 @@ const preservedNames = ['潘調', '勳調'];
 const MAIN_FEES = {
     '入殮': 1000, '出殯': 1200, '入殮出殯': 1700, '入殮扛夫': 1700, '入殮火化': 1000,
     '禮生': 1000, '禮生出殯': 1400, '禮生扶棺': 1500, '午夜功德': 2000, '半日功德': 1000,
-    '招待': 1200, '接體': 1200, '晉塔': 1000
+    '招待': 1200, '接體': 1200, '晉塔': 1000, '拼廳': 1200
 };
 
 const OTHER_FEES = {
@@ -166,6 +166,7 @@ function calculateAmount(workContent, vendor = '', location = '') {
         if (/晉塔|進塔/.test(content)) return { amount: 1000, needsManualCheck: false };
         if (/顧spa/i.test(content)) return { amount: 500, needsManualCheck: false };
         if (/招待/.test(content)) return { amount: 1200, needsManualCheck: false };
+        if (/拼廳/.test(content)) return { amount: 1200, needsManualCheck: false };
         if (/教會出殯/.test(content)) return { amount: 1200, needsManualCheck: false };
 
         // Standard Items
