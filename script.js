@@ -21,7 +21,7 @@ const MAIN_FEES = {
 
 const OTHER_FEES = {
     '頭七~滿七': 500, '女兒旬': 500, '接體空跑': 500, '退冰': 300, '驗屍/復驗': 500,
-    '佈置': 500, '安主/安位': 1000, '返主': 1000, '顧SPA': 500, '教會出殯': 1200
+    '佈置': 500, '安主/安位': 1000, '返主': 1000, '顧SPA': 500, '教會出殯': 1200, '移靈': 500
 };
 
 // Helper Functions
@@ -168,6 +168,7 @@ function calculateAmount(workContent, vendor = '', location = '') {
         if (/招待/.test(content)) return { amount: 1200, needsManualCheck: false };
         if (/拼廳/.test(content)) return { amount: 1200, needsManualCheck: false };
         if (/教會出殯/.test(content)) return { amount: 1200, needsManualCheck: false };
+        if (/移靈/.test(content)) return { amount: 500, needsManualCheck: false };
 
         // Standard Items
         if (/扶棺/.test(content) && !/禮生/.test(content)) return { amount: 700, needsManualCheck: false };
