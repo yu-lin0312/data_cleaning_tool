@@ -9,7 +9,8 @@ const nameMapping = {
     '至鈞': '鄒至鈞', '科': '何科賢', '賢': '何科賢', '風': '王德風', '玲': '蔡采玲', '小玲': '蔡采玲',
     '九': '黃湘玲', '小九': '黃湘玲', '瑩': '戴嘉瑩', '嘉瑩': '戴嘉瑩', '珼': '袁翊珼', '貝貝': '袁翊珼', '珼珼': '袁翊珼',
     '軒': '謝立軒', '立軒': '謝立軒', '文': '羅文昕', '阿文': '羅文昕', '承': '葉承恩', '恩': '葉承恩',
-    '承恩': '葉承恩', '羊羊': '楊洋', '洋洋': '楊洋', '洋': '楊洋', '楊': '楊洋', '力宏': '林立宏', '立宏': '林立宏', '皮皮': '尤怡蘋'
+    '承恩': '葉承恩', '羊羊': '楊洋', '洋洋': '楊洋', '洋': '楊洋', '楊': '楊洋', '力宏': '林立宏', '立宏': '林立宏', '皮皮': '尤怡蘋',
+    '靖': '周靖', '周靖': '周靖', '雨': '小雨', '小雨': '小雨', '姸': '姸姸', '姸姸': '姸姸'
 };
 const preservedNames = ['潘調', '勳調'];
 
@@ -133,6 +134,7 @@ function calculateAmount(workContent, vendor = '', location = '') {
         if ((/柳營/.test(location) || /新營/.test(location)) && /禮生出殯/.test(content)) return { amount: 2000, needsManualCheck: false };
         if ((/台南聖恩/.test(vendor) || /台南龍巖/.test(vendor)) && /禮生出殯/.test(content)) return { amount: 1500, needsManualCheck: false };
         if (/高雄聖恩/.test(vendor) && /禮生出殯/.test(content)) return { amount: 1400, needsManualCheck: false };
+        if (/高雄龍巖/.test(vendor) && /禮生扶棺/.test(content)) return { amount: 1400, needsManualCheck: false };
 
         // Combinations
         if (/洗穿/.test(content) && /化妝/.test(content) && /入殮出殯/.test(content)) return { amount: 2400, needsManualCheck: false };
