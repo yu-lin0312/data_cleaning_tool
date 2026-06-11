@@ -41,9 +41,10 @@ function parseReconcileData(text) {
         const cells = lines[i].split('\t');
         if (cells.length < 2) continue;
 
+        const rawName = getCellValue(cells, finalFieldMap, 'name');
         const row = {
             date: getCellValue(cells, finalFieldMap, 'date'),
-            name: getCellValue(cells, finalFieldMap, 'name'),
+            name: typeof convertName === 'function' ? convertName(rawName) : rawName,
             location: getCellValue(cells, finalFieldMap, 'location'),
             workContent: getCellValue(cells, finalFieldMap, 'workContent'),
             amount: getCellValue(cells, finalFieldMap, 'amount'),
