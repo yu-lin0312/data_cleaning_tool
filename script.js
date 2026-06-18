@@ -117,76 +117,75 @@ function parseScheduleLine(line) {
 
 const calculationCache = new Map();
 
+/** 純計算邏輯，不含 cache。由 calculateAmount 呼叫 */
+function _computeAmount(workContent, vendor, location) {
+    if (!workContent) return { amount: 0, needsManualCheck: true };
+    const content = workContent.trim();
+
+    // Special Rules
+    if (/台南山上鄉/.test(content)) { if (/入殮出殯/.test(content)) return { amount: 1500, needsManualCheck: false }; if (/禮生/.test(content)) return { amount: 1500, needsManualCheck: false }; }
+    if (/林園/.test(content) && /禮生/.test(content)) return { amount: 1200, needsManualCheck: false };
+    if (/臭臭/.test(content) && /入殮出殯/.test(content)) return { amount: 2500, needsManualCheck: false };
+    if (/接臭屍/.test(content)) return { amount: 2000, needsManualCheck: false };
+    if ((/柳營/.test(location) || /新營/.test(location)) && /禮生出殯/.test(content)) return { amount: 2000, needsManualCheck: false };
+    if ((/台南聖恩/.test(vendor) || /台南龍巖/.test(vendor)) && /禮生出殯/.test(content)) return { amount: 1500, needsManualCheck: false };
+    if (/高雄聖恩/.test(vendor) && /禮生出殯/.test(content)) return { amount: 1400, needsManualCheck: false };
+    if (/高雄龍巖/.test(vendor) && /禮生扶棺/.test(content)) return { amount: 1400, needsManualCheck: false };
+
+    // Combinations
+    if (/洗穿/.test(content) && /化妝/.test(content) && /入殮出殯/.test(content)) return { amount: 2400, needsManualCheck: false };
+    if (/更衣入驗/.test(content) && /禮生出殯/.test(content)) return { amount: 2400, needsManualCheck: false };
+    if (/洗穿/.test(content) && /入殮出殯/.test(content)) return { amount: 2200, needsManualCheck: false };
+    if (/洗穿/.test(content) && /入殮扛夫/.test(content)) return { amount: 2200, needsManualCheck: false };
+    if (/化妝/.test(content) && /入殮出殯/.test(content) && !/更衣/.test(content)) return { amount: 2200, needsManualCheck: false };
+    if (/更衣/.test(content) && /入殮出殯/.test(content) && !/化妝/.test(content)) return { amount: 2200, needsManualCheck: false };
+    if ((/加衣/.test(content) || /更衣/.test(content)) && /入殮/.test(content) && !/出殯/.test(content)) return { amount: 1500, needsManualCheck: false };
+    if (/出殯/.test(content) && /回洗/.test(content)) return { amount: 1500, needsManualCheck: false };
+    if (/入殮出殯/.test(content) && /\+禮生/.test(content)) return { amount: 1900, needsManualCheck: false };
+    if (/入殮/.test(content) && /出殯/.test(content) && /禮生/.test(content)) return { amount: 1900, needsManualCheck: false };
+
+    // Main Items
+    if (/午夜功德|午夜/.test(content)) return { amount: 2000, needsManualCheck: false };
+    if (/換罐樹葬/.test(content)) return { amount: 2000, needsManualCheck: false };
+    if (/半日功德|半日燒庫|^半日$/.test(content)) return { amount: 1000, needsManualCheck: false };
+    if (/佛教藥懺/.test(content)) return { amount: 500, needsManualCheck: false };
+    if (/頭七.*燒庫|頭七\+燒庫/.test(content)) return { amount: 500, needsManualCheck: false };
+    if (/頭七|二七|三七|五七|滿七|女兒旬|女兒七/.test(content)) return { amount: 500, needsManualCheck: false };
+    if (/接體空跑/.test(content)) return { amount: 500, needsManualCheck: false };
+    if (/接體/.test(content)) return { amount: 1200, needsManualCheck: false };
+    if (/入殮退冰/.test(content)) return { amount: 1300, needsManualCheck: false };
+    if (/退冰/.test(content)) return { amount: 300, needsManualCheck: false };
+    if (/驗屍|復驗|相相驗/.test(content)) return { amount: 500, needsManualCheck: false };
+    if (/豎靈/.test(content)) return { amount: 500, needsManualCheck: false };
+    if (/引魂/.test(content)) return { amount: 500, needsManualCheck: false };
+    if (/佈置/.test(content)) return { amount: 500, needsManualCheck: false };
+    if (/安主|安位/.test(content)) return { amount: 1000, needsManualCheck: false };
+    if (/返主/.test(content)) return { amount: 1000, needsManualCheck: false };
+    if (/晉塔|進塔/.test(content)) return { amount: 1000, needsManualCheck: false };
+    if (/顧spa/i.test(content)) return { amount: 500, needsManualCheck: false };
+    if (/招待/.test(content)) return { amount: 1200, needsManualCheck: false };
+    if (/拼廳/.test(content)) return { amount: 1200, needsManualCheck: false };
+    if (/教會出殯/.test(content)) return { amount: 1200, needsManualCheck: false };
+    if (/移靈/.test(content)) return { amount: 500, needsManualCheck: false };
+
+    // Standard Items
+    if (/扶棺/.test(content) && !/禮生/.test(content)) return { amount: 700, needsManualCheck: false };
+    if (/入殮扛夫/.test(content) || (/入殮/.test(content) && /扛夫/.test(content))) return { amount: 1700, needsManualCheck: false };
+    if (/入殮火化|入殮送火/.test(content)) return { amount: 1000, needsManualCheck: false };
+    if (/入殮出殯/.test(content) || (/入殮/.test(content) && /出殯/.test(content))) return { amount: 1700, needsManualCheck: false };
+    if (/禮生扶棺|禮生扛棺/.test(content)) return { amount: 1500, needsManualCheck: false };
+    if (/禮生出殯/.test(content)) return { amount: 1400, needsManualCheck: false };
+    if (/禮生/.test(content) && !/出殯|扶棺|扛棺/.test(content)) return { amount: 1000, needsManualCheck: false };
+    if (/入殮/.test(content) && !/出殯|扛夫|火化|送火/.test(content)) return { amount: 1000, needsManualCheck: false };
+    if (/出殯/.test(content) && !/入殮|禮生|回洗/.test(content)) return { amount: 1200, needsManualCheck: false };
+
+    return { amount: 0, needsManualCheck: true };
+}
+
 function calculateAmount(workContent, vendor = '', location = '') {
     const cacheKey = `${workContent}|${vendor}|${location}`;
-    if (calculationCache.has(cacheKey)) {
-        return calculationCache.get(cacheKey);
-    }
-
-    const result = (function () {
-        if (!workContent) return { amount: 0, needsManualCheck: true };
-        const content = workContent.trim();
-
-        // Special Rules
-        if (/台南山上鄉/.test(content)) { if (/入殮出殯/.test(content)) return { amount: 1500, needsManualCheck: false }; if (/禮生/.test(content)) return { amount: 1500, needsManualCheck: false }; }
-        if (/林園/.test(content) && /禮生/.test(content)) return { amount: 1200, needsManualCheck: false };
-        if (/臭臭/.test(content) && /入殮出殯/.test(content)) return { amount: 2500, needsManualCheck: false };
-        if (/接臭屍/.test(content)) return { amount: 2000, needsManualCheck: false };
-        if ((/柳營/.test(location) || /新營/.test(location)) && /禮生出殯/.test(content)) return { amount: 2000, needsManualCheck: false };
-        if ((/台南聖恩/.test(vendor) || /台南龍巖/.test(vendor)) && /禮生出殯/.test(content)) return { amount: 1500, needsManualCheck: false };
-        if (/高雄聖恩/.test(vendor) && /禮生出殯/.test(content)) return { amount: 1400, needsManualCheck: false };
-        if (/高雄龍巖/.test(vendor) && /禮生扶棺/.test(content)) return { amount: 1400, needsManualCheck: false };
-
-        // Combinations
-        if (/洗穿/.test(content) && /化妝/.test(content) && /入殮出殯/.test(content)) return { amount: 2400, needsManualCheck: false };
-        if (/更衣入驗/.test(content) && /禮生出殯/.test(content)) return { amount: 2400, needsManualCheck: false };
-        if (/洗穿/.test(content) && /入殮出殯/.test(content)) return { amount: 2200, needsManualCheck: false };
-        if (/洗穿/.test(content) && /入殮扛夫/.test(content)) return { amount: 2200, needsManualCheck: false };
-        if (/化妝/.test(content) && /入殮出殯/.test(content) && !/更衣/.test(content)) return { amount: 2200, needsManualCheck: false };
-        if (/更衣/.test(content) && /入殮出殯/.test(content) && !/化妝/.test(content)) return { amount: 2200, needsManualCheck: false };
-        if ((/加衣/.test(content) || /更衣/.test(content)) && /入殮/.test(content) && !/出殯/.test(content)) return { amount: 1500, needsManualCheck: false };
-        if (/出殯/.test(content) && /回洗/.test(content)) return { amount: 1500, needsManualCheck: false };
-        if (/入殮出殯/.test(content) && /\+禮生/.test(content)) return { amount: 1900, needsManualCheck: false };
-        if (/入殮/.test(content) && /出殯/.test(content) && /禮生/.test(content)) return { amount: 1900, needsManualCheck: false };
-
-        // Main Items
-        if (/午夜功德|午夜/.test(content)) return { amount: 2000, needsManualCheck: false };
-        if (/換罐樹葬/.test(content)) return { amount: 2000, needsManualCheck: false };
-        if (/半日功德|半日燒庫|^半日$/.test(content)) return { amount: 1000, needsManualCheck: false };
-        if (/佛教藥懺/.test(content)) return { amount: 500, needsManualCheck: false };
-        if (/頭七.*燒庫|頭七\+燒庫/.test(content)) return { amount: 500, needsManualCheck: false };
-        if (/頭七|二七|三七|五七|滿七|女兒旬|女兒七/.test(content)) return { amount: 500, needsManualCheck: false };
-        if (/接體空跑/.test(content)) return { amount: 500, needsManualCheck: false };
-        if (/接體/.test(content)) return { amount: 1200, needsManualCheck: false };
-        if (/入殮退冰/.test(content)) return { amount: 1300, needsManualCheck: false };
-        if (/退冰/.test(content)) return { amount: 300, needsManualCheck: false };
-        if (/驗屍|復驗|相相驗/.test(content)) return { amount: 500, needsManualCheck: false };
-        if (/豎靈/.test(content)) return { amount: 500, needsManualCheck: false };
-        if (/引魂/.test(content)) return { amount: 500, needsManualCheck: false };
-        if (/佈置/.test(content)) return { amount: 500, needsManualCheck: false };
-        if (/安主|安位/.test(content)) return { amount: 1000, needsManualCheck: false };
-        if (/返主/.test(content)) return { amount: 1000, needsManualCheck: false };
-        if (/晉塔|進塔/.test(content)) return { amount: 1000, needsManualCheck: false };
-        if (/顧spa/i.test(content)) return { amount: 500, needsManualCheck: false };
-        if (/招待/.test(content)) return { amount: 1200, needsManualCheck: false };
-        if (/拼廳/.test(content)) return { amount: 1200, needsManualCheck: false };
-        if (/教會出殯/.test(content)) return { amount: 1200, needsManualCheck: false };
-        if (/移靈/.test(content)) return { amount: 500, needsManualCheck: false };
-
-        // Standard Items
-        if (/扶棺/.test(content) && !/禮生/.test(content)) return { amount: 700, needsManualCheck: false };
-        if (/入殮扛夫/.test(content) || (/入殮/.test(content) && /扛夫/.test(content))) return { amount: 1700, needsManualCheck: false };
-        if (/入殮火化|入殮送火/.test(content)) return { amount: 1000, needsManualCheck: false };
-        if (/入殮出殯/.test(content) || (/入殮/.test(content) && /出殯/.test(content))) return { amount: 1700, needsManualCheck: false };
-        if (/禮生扶棺|禮生扛棺/.test(content)) return { amount: 1500, needsManualCheck: false };
-        if (/禮生出殯/.test(content)) return { amount: 1400, needsManualCheck: false };
-        if (/禮生/.test(content) && !/出殯|扶棺|扛棺/.test(content)) return { amount: 1000, needsManualCheck: false };
-        if (/入殮/.test(content) && !/出殯|扛夫|火化|送火/.test(content)) return { amount: 1000, needsManualCheck: false };
-        if (/出殯/.test(content) && !/入殮|禮生|回洗/.test(content)) return { amount: 1200, needsManualCheck: false };
-
-        return { amount: 0, needsManualCheck: true };
-    })();
-
+    if (calculationCache.has(cacheKey)) return calculationCache.get(cacheKey);
+    const result = _computeAmount(workContent, vendor, location);
     calculationCache.set(cacheKey, result);
     return result;
 }
@@ -334,10 +333,7 @@ window.addEventListener('DOMContentLoaded', () => {
         parsedData = parseScheduleData(input.value);
         filterData();
 
-        const endTime = performance.now();
-        const duration = (endTime - startTime).toFixed(2);
-        console.log(`Parsing completed in ${duration}ms`);
-
+        const duration = (performance.now() - startTime).toFixed(2);
         updateUIState(duration);
     });
 

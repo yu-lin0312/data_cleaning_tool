@@ -63,11 +63,7 @@ function parseReconcileData(text) {
  */
 function looksLikeDate(str) {
     if (!str) return false;
-    // 數字分隔格式：2026/2/1, 2/7
-    if (/^\d{1,4}[\/\-]\d{1,2}/.test(str)) return true;
-    // 中文格式：2月7日, 2/7日
-    if (/^\d{1,2}月\d{1,2}日?/.test(str)) return true;
-    return false;
+    return /^\d{1,4}[\/\-]\d{1,2}/.test(str) || /^\d{1,2}月\d{1,2}日?/.test(str);
 }
 
 /**
@@ -222,18 +218,10 @@ function normalizeDate(dateStr) {
     let s = dateStr.trim();
 
     // 中文格式：2月7日 → 轉換為 MM/DD
-    const chineseMatch = s.match(/^(\d{1,4})月(\d{1,2})日?/);
+    const chineseMatch = s.match(/^(\d{1,2})月(\d{1,2})日?/);
     if (chineseMatch) {
-        const part1 = chineseMatch[1];
-        const part2 = chineseMatch[2];
-        // 若第一組 > 12，視為年份（罕見但支援）
-        if (parseInt(part1, 10) > 31) {
-            // 有年份：例如「2026年2月7日」—先不處理這情況，直接跳到下面
-        } else {
-            const year = new Date().getFullYear();
-            s = `${year}/${part1.padStart(2, '0')}/${part2.padStart(2, '0')}`;
-            return s;
-        }
+        const year = new Date().getFullYear();
+        return `${year}/${chineseMatch[1].padStart(2, '0')}/${chineseMatch[2].padStart(2, '0')}`;
     }
 
     const cleaned = s.replace(/-/g, '/');
@@ -259,18 +247,6 @@ function normalizeAmount(amountStr) {
     return String(parseInt(amountStr.replace(/[^0-9]/g, ''), 10) || 0);
 }
 
-/**
- * 標準化時間格式 (去除冒號、補零)
- * @param {string} timeStr
- * @returns {string}
- */
-function normalizeTime(timeStr) {
-    if (!timeStr) return '';
-    const cleaned = timeStr.replace(/[:\s]/g, '');
-    if (cleaned.length === 3) return '0' + cleaned;
-    if (cleaned.length === 4) return cleaned;
-    return cleaned;
-}
 
 // ==================== 核心比對邏輯 ====================
 
@@ -289,7 +265,7 @@ function reconcile(baseData, reportData) {
         ...row,
         _date: normalizeDate(row.date),
         _amount: normalizeAmount(row.amount),
-        _time: normalizeTime(row.startTime),
+        _time: row.startTime ? formatTime(row.startTime) : '',
         _matched: false,
     }));
 
@@ -297,7 +273,7 @@ function reconcile(baseData, reportData) {
         ...row,
         _date: normalizeDate(row.date),
         _amount: normalizeAmount(row.amount),
-        _time: normalizeTime(row.startTime),
+        _time: row.startTime ? formatTime(row.startTime) : '',
         _matched: false,
     }));
 
