@@ -31,7 +31,7 @@ function isProjectVendor(vendor) { return vendor && projectVendors.some(pv => ve
 function fixLocationTypo(location) { if (!location) return location; let fixed = location; for (const [typo, correct] of Object.entries(locationTypoFixes)) fixed = fixed.replace(typo, correct); return fixed; }
 function fixVendorTypo(vendor) { if (!vendor) return vendor; let fixed = vendor; for (const [typo, correct] of Object.entries(vendorTypoFixes)) fixed = fixed.replace(typo, correct); return fixed; }
 function convertName(name) { const trimmed = name.trim(); return preservedNames.includes(trimmed) ? trimmed : (nameMapping[trimmed] || trimmed); }
-function formatTime(timeStr) { let cleaned = timeStr.replace(/[:\s]/g, ''); if (cleaned.length === 1) return '0' + cleaned + '00'; if (cleaned.length === 2) return cleaned + '00'; if (cleaned.length === 3) return '0' + cleaned; if (cleaned.length === 4) return cleaned; return timeStr; }
+function formatTime(timeStr) { let cleaned = timeStr.replace(/」/g, '0').replace(/[:\s]/g, ''); if (cleaned.length === 1) return '0' + cleaned + '00'; if (cleaned.length === 2) return cleaned + '00'; if (cleaned.length === 3) return '0' + cleaned; if (cleaned.length === 4) return cleaned; return timeStr; }
 
 function normalizeWorkContent(content) {
     if (!content) return content;
