@@ -166,3 +166,142 @@ body {
 .status-dot-match {
     background: #16a34a;
 }
+
+/* ==================== 原文解析預覽區 ==================== */
+
+.source-annotated {
+    padding: 16px;
+    overflow-y: auto;
+    font-family: 'Consolas', 'Microsoft JhengHei', monospace;
+    font-size: 13px;
+    line-height: 1.6;
+    color: #334155;
+}
+
+.source-block {
+    position: relative;
+    padding: 10px 12px;
+    margin-bottom: 4px;
+    border-radius: 8px;
+    border-left: 3px solid transparent;
+    transition: background-color 0.3s ease, border-color 0.3s ease;
+}
+
+.source-block:hover {
+    background-color: rgba(241, 245, 249, 0.6);
+}
+
+/* 日期行段落 */
+.source-block-date {
+    border-left-color: #818cf8;
+    background-color: rgba(238, 242, 255, 0.4);
+    font-weight: 600;
+    color: #4f46e5;
+    margin-top: 8px;
+}
+
+/* 場次行段落 */
+.source-block-schedule {
+    border-left-color: #94a3b8;
+}
+
+/* 閃爍高亮（定位跳轉用） */
+.source-block-highlight {
+    animation: sourceHighlight 2s ease;
+}
+
+@keyframes sourceHighlight {
+    0%   { background-color: rgba(251, 191, 36, 0.45); }
+    30%  { background-color: rgba(251, 191, 36, 0.3); }
+    60%  { background-color: rgba(251, 191, 36, 0.15); }
+    100% { background-color: transparent; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .source-block-highlight {
+        animation: none;
+        background-color: rgba(251, 191, 36, 0.2);
+        transition: background-color 0.5s ease;
+    }
+}
+
+/* ==================== 解析摘要卡片 ==================== */
+
+.parse-card {
+    margin: 4px 0 6px 14px;
+    padding: 6px 10px;
+    background: rgba(255, 255, 255, 0.85);
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    font-size: 11px;
+    font-family: 'Inter', 'Microsoft JhengHei', sans-serif;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 12px;
+    align-items: center;
+    color: #475569;
+}
+
+.parse-card-field {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    white-space: nowrap;
+}
+
+.parse-card-field-label {
+    color: #94a3b8;
+    font-size: 10px;
+}
+
+.parse-card-field-value {
+    font-weight: 500;
+    color: #334155;
+}
+
+/* 需人工確認金額 */
+.parse-card-warn {
+    background: #fef2f2;
+    color: #dc2626;
+    padding: 1px 6px;
+    border-radius: 4px;
+    border: 1px solid #fecaca;
+    font-weight: 600;
+}
+
+/* 未建檔姓名 */
+.parse-card-unknown {
+    background: #fffbeb;
+    color: #d97706;
+    padding: 1px 6px;
+    border-radius: 4px;
+    border: 1px solid #fde68a;
+    font-weight: 600;
+}
+
+/* ==================== 定位按鈕 ==================== */
+
+.locate-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    border-radius: 6px;
+    border: 1px solid #e2e8f0;
+    background: #f8fafc;
+    color: #94a3b8;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    flex-shrink: 0;
+}
+
+.locate-btn:hover {
+    background: #eef2ff;
+    border-color: #c7d2fe;
+    color: #4f46e5;
+}
+
+.locate-btn:active {
+    transform: scale(0.92);
+}
