@@ -767,13 +767,12 @@ function handleDownloadCsv() {
 }
 
 async function handleCopyToClipboard() {
-    const headers = ['日期', '姓名', '開始時間', '地點', '廠商/單位', '工作內容', '金額', '收款狀態', '備註', '金額2'];
     const rows = filteredData.map(r => [
         r.date, r.name, r.startTime, r.location, r.vendor, r.workContent, r.amount, r.paymentStatus, r.notes, r.amount2
     ].join('\t'));
 
     try {
-        await navigator.clipboard.writeText([headers.join('\t'), ...rows].join('\n'));
+        await navigator.clipboard.writeText(rows.join('\n'));
         const btn = document.getElementById('copyBtn');
         const oldHTML = btn.innerHTML;
         const oldClass = btn.className;
