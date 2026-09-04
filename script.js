@@ -45,16 +45,23 @@ function normalizeWorkContent(content) {
     return normalized;
 }
 
-// 判斷是否為「日期開頭行」(可能後面接著工作內容，如 "2/1 06:30橋殯 邑威 出殯")
-function isDateLine(line) { return /^\d{1,2}\/\d{1,2}/.test(line.trim()); }
+// 判斷是否為「日期開頭行」(支援 YYYY/MM/DD, MM/DD, 或中文日期)
+function isDateLine(line) {
+    const t = line.trim();
+    return /^(?:\d{4}[\/\-])?\d{1,2}[\/\-]\d{1,2}/.test(t) || /^\d{1,2}月\d{1,2}日?/.test(t);
+}
 // 單純只有日期，沒有工作內容
-function isPureDateLine(line) { return /^\d{1,2}\/\d{1,2}\s*$/.test(line.trim()); }
+function isPureDateLine(line) {
+    const t = line.trim();
+    return /^(?:\d{4}[\/\-])?\d{1,2}[\/\-]\d{1,2}\s*$/.test(t) || /^\d{1,2}月\d{1,2}日?\s*$/.test(t);
+}
 function isSeparatorLine(line) { return /^[-—─]+$/.test(line.trim()) || line.trim() === ''; }
 function isScheduleLine(line) {
     const trimmed = line.trim();
     // 略過星號備註行 (例：*采邑185 接體 14:30)
-    if (trimmed.startsWith('*')) return false;
-    // 格式一：時間在前 (11:00 龍圓 岡山 接體)
+    if (!trimmed || trimmed.startsWith('*')) return false;
+    // 格式一：時間在前 (11:00 龍圓 岡山 接體 或 06:30橋殯 邑威 出殯)
+    if (/^\d{1,2}[:\s]?\d{2}(\s+|(?=[\u4e00-\u9fa5]))/.test(trimmed)) return true;
     if (/^\d{1,2}[:\s]?\d{0,2}\s+/.test(trimmed)) return true;
     // 格式二：時間在後 (龍圓 岡山 接體 11:00)
     if (/\s\d{1,2}[:\s]?\d{2}\s*$/.test(trimmed)) return true;
@@ -67,11 +74,12 @@ function isRitualistLine(line) { return line.trim().startsWith('禮儀師：') |
 
 function isNamesLine(line) {
     const trimmed = line.trim();
-    // Fast Path: Check for Chinese characters first
-    if (!/^[\u4e00-\u9fa5\s]+$/.test(trimmed)) return false;
+    if (!trimmed) return false;
+    // 支援中文字、空白、常見分隔符號（如頓號、逗號、斜線等）
+    if (!/^[\u4e00-\u9fa5\s、，,／/\(\)（）]+$/.test(trimmed)) return false;
 
-    // Exclude specific non-name lines that might contain Chinese
-    if (isCaseNameLine(line) || isRitualistLine(line) || isScheduleLine(line)) return false;
+    // 排除特定非人名行（案名、禮儀師、排班場次行、日期行）
+    if (isCaseNameLine(line) || isRitualistLine(line) || isScheduleLine(line) || isDateLine(line)) return false;
 
     return true;
 }
@@ -79,8 +87,8 @@ function isNamesLine(line) {
 function parseScheduleLine(line) {
     const trimmed = line.trim();
 
-    // 格式一：時間在前 → 11:00 龍圓 岡山 接體
-    const frontMatch = trimmed.match(/^(\d{1,2}[:\s]?\d{0,2})\s+(.+)$/);
+    // 格式一：時間在前 → 11:00 龍圓 岡山 接體 或 06:30橋殯 邑威 出殯
+    const frontMatch = trimmed.match(/^(\d{1,2}[:\s]?\d{0,2})(?:\s+|(?=[\u4e00-\u9fa5]))(.+)$/);
     if (frontMatch) {
         const time = formatTime(frontMatch[1]);
         const rest = frontMatch[2];
@@ -190,17 +198,40 @@ function calculateAmount(workContent, vendor = '', location = '') {
     return result;
 }
 
-function splitNamesAndWork(text) {
+const WORK_KEYWORDS = [
+    '入殮', '出殯', '禮生', '功德', '接體', '退冰', '驗屍', '復驗', '相驗', '豎靈', '引魂', '佈置',
+    '安主', '安位', '返主', '晉塔', '進塔', '招待', '拼廳', '扶棺', '洗身', '洗穿', '化妝', '更衣',
+    '燒庫', '回洗', '加衣', '火化', '扛棺', '扛夫', '半日', '午夜', '藥懺', '頭七', '二七', '三七',
+    '五七', '滿七', '女兒旬', '女兒七', 'SPA', 'spa', '移靈', '教會', '送火', '入出', '禮出',
+    '禮扶', '禮扛', '入冰', '換罐', '樹葬', '協助', '告別式', '調'
+];
+
+function splitNamesAndWork(text, unknownNamesSet = null) {
     if (!text) return { names: [], extraWork: '' };
-    const parts = text.trim().split(/\s+/);
+    // 支援以空白、頓號、逗號、斜線等拆分
+    const parts = text.trim().split(/[、，,\s/／]+/).filter(Boolean);
     const names = [];
     const rest = [];
 
     for (const part of parts) {
-        // 檢查這個詞是否在對照表中 (縮寫或全名) 或在保留名單中
+        // 1. 檢查是否在既有名單或保留名單中
         const isKnownName = nameMapping[part] || Object.values(nameMapping).includes(part) || preservedNames.includes(part);
         if (isKnownName) {
             names.push(part);
+            continue;
+        }
+
+        // 2. 檢查是否包含工作關鍵字
+        const isWork = WORK_KEYWORDS.some(kw => part.includes(kw));
+        if (isWork) {
+            rest.push(part);
+            continue;
+        }
+
+        // 3. 既非已知人名、亦非工作關鍵字，若符合中文名稱特徵（1~4字），視為未知人名候選
+        if (/^[\u4e00-\u9fa5]{1,4}$/.test(part)) {
+            names.push(part);
+            if (unknownNamesSet) unknownNamesSet.add(part);
         } else {
             rest.push(part);
         }
@@ -209,46 +240,122 @@ function splitNamesAndWork(text) {
 }
 
 function parseScheduleData(text) {
-    const lines = text.split('\n'), results = [];
-    let currentDate = '', lastSchedule = null, currentCaseName = '', currentRitualist = '';
+    const lines = text.split('\n');
+    const results = [];
+    let currentDate = '';
+    let lastSchedule = null;
+    let lastScheduleLineNum = 0;
+    let currentCaseName = '';
+    let currentRitualist = '';
 
-    for (let line of lines) {
+    const unknownNamesSet = new Set();
+    const unrecognizedLines = [];
+    const orphanSchedules = [];
+    let scheduleCount = 0;
+
+    // 輔助函式：若有未分配人員的場次，建立「（未指定人員）」以防遺漏
+    function flushPendingSchedule(reason = '未分配人員') {
+        if (!lastSchedule) return;
+        orphanSchedules.push({
+            lineNum: lastScheduleLineNum,
+            date: lastSchedule.date,
+            startTime: lastSchedule.startTime,
+            location: lastSchedule.location,
+            vendor: lastSchedule.vendor,
+            workContent: lastSchedule.workContent,
+        });
+
+        const { amount, needsManualCheck } = calculateAmount(lastSchedule.workContent, lastSchedule.vendor, lastSchedule.location);
+        let notes = currentRitualist || currentCaseName || '';
+        notes = (notes ? notes + '；' : '') + reason;
+        if (needsManualCheck) notes = (notes ? notes + '；' : '') + '需人工確認金額';
+        if (isProjectVendor(lastSchedule.vendor)) notes = (notes ? notes + '；' : '') + '專案';
+
+        results.push({
+            date: lastSchedule.date,
+            name: '（未指定人員）',
+            startTime: lastSchedule.startTime,
+            location: lastSchedule.location,
+            vendor: lastSchedule.vendor,
+            workContent: lastSchedule.workContent,
+            amount: amount.toString(),
+            paymentStatus: '未收',
+            notes: notes,
+            amount2: amount.toString(),
+        });
+        lastSchedule = null;
+    }
+
+    for (let i = 0; i < lines.length; i++) {
+        const lineNum = i + 1;
+        const line = lines[i];
+        const trimmed = line.trim();
+
         if (isSeparatorLine(line)) continue;
-
-        // 略過星號備註行 (如 *采邑185 接體 14:30)
-        if (line.trim().startsWith('*')) continue;
+        if (trimmed.startsWith('*')) continue;
 
         if (isDateLine(line)) {
-            const trimmedLine = line.trim();
-            const m = trimmedLine.match(/(\d{1,2})\/(\d{1,2})/);
-            if (m) {
+            flushPendingSchedule();
+
+            const fullYearMatch = trimmed.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);
+            const monthDayMatch = trimmed.match(/^(\d{1,2})[\/\-](\d{1,2})/);
+            const chineseMatch = trimmed.match(/^(\d{1,2})月(\d{1,2})日?/);
+
+            if (fullYearMatch) {
+                currentDate = `${fullYearMatch[1]}/${fullYearMatch[2].padStart(2, '0')}/${fullYearMatch[3].padStart(2, '0')}`;
+            } else if (monthDayMatch) {
                 const currentYear = new Date().getFullYear();
-                currentDate = `${currentYear}/${m[1].padStart(2, '0')}/${m[2].padStart(2, '0')}`;
+                currentDate = `${currentYear}/${monthDayMatch[1].padStart(2, '0')}/${monthDayMatch[2].padStart(2, '0')}`;
+            } else if (chineseMatch) {
+                const currentYear = new Date().getFullYear();
+                currentDate = `${currentYear}/${chineseMatch[1].padStart(2, '0')}/${chineseMatch[2].padStart(2, '0')}`;
             }
 
-            // 判斷日期後面是否還有工作內容 (範本2格式："2/1 06:30橋殯 邑威 出殯")
-            const afterDate = trimmedLine.replace(/^\d{1,2}\/\d{1,2}\s*/, '').trim();
+            // 判斷日期後面是否緊接工作內容 (例如 "2/1 06:30橋殯 邑威 出殯")
+            const afterDate = trimmed.replace(/^(?:\d{4}[\/\-])?\d{1,2}[\/\-]\d{1,2}\s*/, '').replace(/^\d{1,2}月\d{1,2}日?\s*/, '').trim();
             if (afterDate && isScheduleLine(afterDate)) {
                 const p = parseScheduleLine(afterDate);
                 if (p) {
-                    // 檢查工作內容中是否夾雜人名 (如 "10:00 靜心7松佑 玲 魚 黑 入出")
-                    const { names, extraWork } = splitNamesAndWork(p.workContent);
+                    scheduleCount++;
+                    const { names, extraWork } = splitNamesAndWork(p.workContent, unknownNamesSet);
                     const finalWorkContent = extraWork || p.workContent;
 
-                    lastSchedule = { date: currentDate, startTime: p.time, location: p.location, vendor: p.vendor.replace(/[哥姐]/g, ''), workContent: normalizeWorkContent(finalWorkContent) };
+                    lastSchedule = {
+                        date: currentDate,
+                        startTime: p.time,
+                        location: p.location,
+                        vendor: p.vendor.replace(/[哥姐]/g, ''),
+                        workContent: normalizeWorkContent(finalWorkContent),
+                    };
+                    lastScheduleLineNum = lineNum;
 
-                    // 如果工作內容中就直接有人名，直接處理掉
                     if (names.length > 0) {
                         for (let name of names) {
                             const fullName = convertName(name);
+                            const isUnknown = unknownNamesSet.has(name);
                             const { amount, needsManualCheck } = calculateAmount(lastSchedule.workContent, lastSchedule.vendor, lastSchedule.location);
-                            results.push({ date: lastSchedule.date, name: fullName, startTime: lastSchedule.startTime, location: lastSchedule.location, vendor: lastSchedule.vendor, workContent: lastSchedule.workContent, amount: amount.toString(), paymentStatus: '未收', notes: '', amount2: amount.toString() });
+                            let notes = currentRitualist || currentCaseName || '';
+                            if (isUnknown) notes = (notes ? notes + '；' : '') + `未建檔姓名(${name})`;
+                            if (needsManualCheck) notes = (notes ? notes + '；' : '') + '需人工確認金額';
+                            if (isProjectVendor(lastSchedule.vendor)) notes = (notes ? notes + '；' : '') + '專案';
+
+                            results.push({
+                                date: lastSchedule.date,
+                                name: fullName,
+                                startTime: lastSchedule.startTime,
+                                location: lastSchedule.location,
+                                vendor: lastSchedule.vendor,
+                                workContent: lastSchedule.workContent,
+                                amount: amount.toString(),
+                                paymentStatus: '未收',
+                                notes: notes,
+                                amount2: amount.toString(),
+                            });
                         }
                         lastSchedule = null;
                     }
                 }
             } else {
-                lastSchedule = null;
                 currentCaseName = '';
                 currentRitualist = '';
             }
@@ -256,19 +363,45 @@ function parseScheduleData(text) {
         }
 
         if (isScheduleLine(line)) {
+            flushPendingSchedule();
+
             const p = parseScheduleLine(line);
             if (p) {
-                // 同樣檢查夾雜人名的情況
-                const { names, extraWork } = splitNamesAndWork(p.workContent);
+                scheduleCount++;
+                const { names, extraWork } = splitNamesAndWork(p.workContent, unknownNamesSet);
                 const finalWorkContent = extraWork || p.workContent;
 
-                lastSchedule = { date: currentDate, startTime: p.time, location: p.location, vendor: p.vendor.replace(/[哥姐]/g, ''), workContent: normalizeWorkContent(finalWorkContent) };
+                lastSchedule = {
+                    date: currentDate,
+                    startTime: p.time,
+                    location: p.location,
+                    vendor: p.vendor.replace(/[哥姐]/g, ''),
+                    workContent: normalizeWorkContent(finalWorkContent),
+                };
+                lastScheduleLineNum = lineNum;
 
                 if (names.length > 0) {
                     for (let name of names) {
                         const fullName = convertName(name);
+                        const isUnknown = unknownNamesSet.has(name);
                         const { amount, needsManualCheck } = calculateAmount(lastSchedule.workContent, lastSchedule.vendor, lastSchedule.location);
-                        results.push({ date: lastSchedule.date, name: fullName, startTime: lastSchedule.startTime, location: lastSchedule.location, vendor: lastSchedule.vendor, workContent: lastSchedule.workContent, amount: amount.toString(), paymentStatus: '未收', notes: '', amount2: amount.toString() });
+                        let notes = currentRitualist || currentCaseName || '';
+                        if (isUnknown) notes = (notes ? notes + '；' : '') + `未建檔姓名(${name})`;
+                        if (needsManualCheck) notes = (notes ? notes + '；' : '') + '需人工確認金額';
+                        if (isProjectVendor(lastSchedule.vendor)) notes = (notes ? notes + '；' : '') + '專案';
+
+                        results.push({
+                            date: lastSchedule.date,
+                            name: fullName,
+                            startTime: lastSchedule.startTime,
+                            location: lastSchedule.location,
+                            vendor: lastSchedule.vendor,
+                            workContent: lastSchedule.workContent,
+                            amount: amount.toString(),
+                            paymentStatus: '未收',
+                            notes: notes,
+                            amount2: amount.toString(),
+                        });
                     }
                     lastSchedule = null;
                 }
@@ -277,31 +410,75 @@ function parseScheduleData(text) {
             }
             continue;
         }
-        if (isCaseNameLine(line)) { currentCaseName = line.trim().replace(/^案名[：:]/, '').trim(); continue; }
-        if (isRitualistLine(line)) { currentRitualist = line.trim().replace(/^禮儀師[：:]/, '').trim(); continue; }
 
-        if (isNamesLine(line) && lastSchedule) {
-            // 使用 splitNamesAndWork 拆分人名與其後可能接的工作內容
-            const { names, extraWork } = splitNamesAndWork(line.trim());
+        if (isCaseNameLine(line)) {
+            currentCaseName = trimmed.replace(/^案名[：:]/, '').trim();
+            continue;
+        }
 
-            // 如果有額外的工作內容，合併到目前的 schedule 中
-            if (extraWork) {
-                lastSchedule.workContent = normalizeWorkContent(lastSchedule.workContent + ' ' + extraWork);
-            }
+        if (isRitualistLine(line)) {
+            currentRitualist = trimmed.replace(/^禮儀師[：:]/, '').trim();
+            continue;
+        }
 
-            if (names.length > 0) {
-                for (let name of names) {
-                    const fullName = convertName(name);
-                    const { amount, needsManualCheck } = calculateAmount(lastSchedule.workContent, lastSchedule.vendor, lastSchedule.location);
-                    let notes = currentRitualist || currentCaseName || '';
-                    if (needsManualCheck) notes = (notes ? notes + '；' : '') + '需人工確認金額';
-                    if (isProjectVendor(lastSchedule.vendor)) notes = (notes ? notes + '；' : '') + '專案';
-                    results.push({ date: lastSchedule.date, name: fullName, startTime: lastSchedule.startTime, location: lastSchedule.location, vendor: lastSchedule.vendor, workContent: lastSchedule.workContent, amount: amount.toString(), paymentStatus: '未收', notes: notes, amount2: amount.toString() });
+        if (isNamesLine(line)) {
+            if (lastSchedule) {
+                const { names, extraWork } = splitNamesAndWork(trimmed, unknownNamesSet);
+                if (extraWork) {
+                    lastSchedule.workContent = normalizeWorkContent(lastSchedule.workContent + ' ' + extraWork);
                 }
-                lastSchedule = null;
+
+                if (names.length > 0) {
+                    for (let name of names) {
+                        const fullName = convertName(name);
+                        const isUnknown = unknownNamesSet.has(name);
+                        const { amount, needsManualCheck } = calculateAmount(lastSchedule.workContent, lastSchedule.vendor, lastSchedule.location);
+                        let notes = currentRitualist || currentCaseName || '';
+                        if (isUnknown) notes = (notes ? notes + '；' : '') + `未建檔姓名(${name})`;
+                        if (needsManualCheck) notes = (notes ? notes + '；' : '') + '需人工確認金額';
+                        if (isProjectVendor(lastSchedule.vendor)) notes = (notes ? notes + '；' : '') + '專案';
+
+                        results.push({
+                            date: lastSchedule.date,
+                            name: fullName,
+                            startTime: lastSchedule.startTime,
+                            location: lastSchedule.location,
+                            vendor: lastSchedule.vendor,
+                            workContent: lastSchedule.workContent,
+                            amount: amount.toString(),
+                            paymentStatus: '未收',
+                            notes: notes,
+                            amount2: amount.toString(),
+                        });
+                    }
+                    lastSchedule = null;
+                } else {
+                    unrecognizedLines.push({ lineNum, text: line, reason: '未能識別出有效人員姓名' });
+                }
+            } else {
+                unrecognizedLines.push({ lineNum, text: line, reason: '此行看似人名但無對應場次' });
             }
+            continue;
+        }
+
+        // 非空白且未被以上任何規則匹配
+        if (trimmed) {
+            unrecognizedLines.push({ lineNum, text: line, reason: '無法辨識的格式' });
         }
     }
+
+    // 文字結束時檢查是否有殘餘未排人場次
+    flushPendingSchedule();
+
+    results.audit = {
+        totalLines: lines.length,
+        scheduleCount,
+        generatedCount: results.length,
+        unrecognizedLines,
+        orphanSchedules,
+        unknownNames: Array.from(unknownNamesSet),
+    };
+
     return results;
 }
 
@@ -331,6 +508,9 @@ window.addEventListener('DOMContentLoaded', () => {
         calculationCache.clear();
 
         parsedData = parseScheduleData(input.value);
+        if (parsedData.audit) {
+            renderAuditBanner(parsedData.audit);
+        }
         filterData();
 
         const duration = (performance.now() - startTime).toFixed(2);
@@ -345,6 +525,8 @@ window.addEventListener('DOMContentLoaded', () => {
         parseBtn.disabled = true;
         updateInputCount();
         updateUIState();
+        const banner = document.getElementById('parseAuditBanner');
+        if (banner) banner.classList.add('hidden');
     });
 
     nameFilter.addEventListener('input', filterData);
@@ -414,22 +596,159 @@ function updateUIState(duration = null) {
     badge.textContent = badgeText;
 }
 
+function escapeHtml(str) {
+    if (!str) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
+
+function renderAuditBanner(audit) {
+    const banner = document.getElementById('parseAuditBanner');
+    const titleContainer = document.getElementById('auditTitleContainer');
+    const toggleBtn = document.getElementById('auditToggleBtn');
+    const details = document.getElementById('auditDetails');
+    const toggleIcon = document.getElementById('auditToggleIcon');
+    if (!banner || !titleContainer || !details) return;
+
+    const issueCount = (audit.unrecognizedLines?.length || 0) +
+        (audit.orphanSchedules?.length || 0) +
+        (audit.unknownNames?.length || 0);
+
+    if (issueCount === 0) {
+        banner.className = 'mx-6 mt-4 p-3.5 rounded-xl border bg-emerald-50/80 border-emerald-200 text-emerald-800 transition-all';
+        titleContainer.innerHTML = `
+            <svg class="w-5 h-5 text-emerald-600 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                <polyline points="22 4 12 14.01 9 11.01"></polyline>
+            </svg>
+            <div class="text-xs">
+                <span class="font-semibold text-emerald-900">解析檢查正常：</span>
+                <span class="text-slate-600">共識別 ${audit.scheduleCount} 個場次，生成 ${audit.generatedCount} 筆排班明細，無遺漏或未辨識項目。</span>
+            </div>
+        `;
+        toggleBtn.classList.add('hidden');
+        details.classList.add('hidden');
+        banner.classList.remove('hidden');
+    } else {
+        banner.className = 'mx-6 mt-4 p-4 rounded-xl border bg-amber-50/90 border-amber-200 text-amber-900 shadow-sm transition-all';
+        titleContainer.innerHTML = `
+            <svg class="w-5 h-5 text-amber-600 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"></path>
+                <line x1="12" y1="9" x2="12" y2="13"></line>
+                <line x1="12" y1="17" x2="12.01" y2="17"></line>
+            </svg>
+            <div class="text-xs">
+                <span class="font-semibold text-amber-950">比對檢查提醒：</span>
+                <span class="text-slate-700">生成 ${audit.generatedCount} 筆，發現 <strong class="text-amber-700 font-bold">${issueCount} 個需確認項目</strong>（點擊右側可展開/收合）</span>
+            </div>
+        `;
+        toggleBtn.classList.remove('hidden');
+
+        // 組裝詳細資訊清單
+        let detailsHtml = '';
+
+        if (audit.unknownNames && audit.unknownNames.length > 0) {
+            detailsHtml += `
+                <div class="p-2.5 bg-white/80 rounded-lg border border-amber-200/80">
+                    <div class="font-semibold text-amber-900 flex items-center gap-1.5 mb-1">
+                        <svg class="w-4 h-4 text-amber-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path>
+                            <circle cx="9" cy="7" r="4"></circle>
+                        </svg>
+                        未建檔姓名（共 ${audit.unknownNames.length} 位）
+                    </div>
+                    <p class="text-slate-600 mb-1.5 leading-relaxed">已暫先為其產生成員資料（防止漏算），但因不在姓名對照表中，請確認是否為新同仁：</p>
+                    <div class="flex flex-wrap gap-1.5">
+                        ${audit.unknownNames.map(n => `<span class="px-2 py-0.5 bg-amber-100 text-amber-800 rounded font-medium border border-amber-300/60">${escapeHtml(n)}</span>`).join('')}
+                    </div>
+                </div>
+            `;
+        }
+
+        if (audit.orphanSchedules && audit.orphanSchedules.length > 0) {
+            detailsHtml += `
+                <div class="p-2.5 bg-white/80 rounded-lg border border-red-200">
+                    <div class="font-semibold text-red-800 flex items-center gap-1.5 mb-1">
+                        <svg class="w-4 h-4 text-red-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <line x1="12" y1="8" x2="12" y2="12"></line>
+                            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                        </svg>
+                        未分配人員場次（共 ${audit.orphanSchedules.length} 場）
+                    </div>
+                    <p class="text-slate-600 mb-1 leading-relaxed">以下場次有工作時間與內容，但下方未找到人員姓名，已暫列為「（未指定人員）」避免漏算：</p>
+                    <ul class="list-disc list-inside space-y-0.5 text-slate-700">
+                        ${audit.orphanSchedules.map(s => `<li>第 ${s.lineNum} 行：${escapeHtml(s.date)} ${escapeHtml(s.startTime || '')} ${escapeHtml(s.location || '')} ${escapeHtml(s.workContent || '')}</li>`).join('')}
+                    </ul>
+                </div>
+            `;
+        }
+
+        if (audit.unrecognizedLines && audit.unrecognizedLines.length > 0) {
+            detailsHtml += `
+                <div class="p-2.5 bg-white/80 rounded-lg border border-slate-200">
+                    <div class="font-semibold text-slate-700 flex items-center gap-1.5 mb-1">
+                        <svg class="w-4 h-4 text-slate-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line>
+                        </svg>
+                        未辨識或格式不符的文字行（共 ${audit.unrecognizedLines.length} 行）
+                    </div>
+                    <p class="text-slate-500 mb-1 leading-relaxed">以下內容不符合日期、場次或人名格式，已被略過，請確認是否有排班被漏掉：</p>
+                    <ul class="space-y-1 font-mono text-slate-600">
+                        ${audit.unrecognizedLines.map(l => `<li class="bg-slate-100/80 px-2 py-1 rounded">第 ${l.lineNum} 行：${escapeHtml(l.text)} <span class="text-slate-400 font-sans">(${escapeHtml(l.reason)})</span></li>`).join('')}
+                    </ul>
+                </div>
+            `;
+        }
+
+        details.innerHTML = detailsHtml;
+        details.classList.remove('hidden');
+        if (toggleIcon) toggleIcon.style.transform = 'rotate(180deg)';
+        banner.classList.remove('hidden');
+    }
+}
+
+function toggleAuditDetails() {
+    const details = document.getElementById('auditDetails');
+    const icon = document.getElementById('auditToggleIcon');
+    if (!details) return;
+    const isHidden = details.classList.contains('hidden');
+    details.classList.toggle('hidden', !isHidden);
+    if (icon) {
+        icon.style.transform = isHidden ? 'rotate(180deg)' : 'rotate(0deg)';
+    }
+}
+
 function renderTable() {
     const tbody = document.getElementById('resultBody');
-    tbody.innerHTML = filteredData.map(r => `
-        <tr class="hover:bg-indigo-50/30 transition-colors group">
-            <td class="p-4 text-slate-600 text-sm">${r.date}</td>
-            <td class="p-4 text-slate-800 font-medium text-sm">${r.name}</td>
-            <td class="p-4 text-slate-600 font-mono text-xs">${r.startTime}</td>
-            <td class="p-4 text-slate-600 text-sm">${r.location}</td>
-            <td class="p-4 text-slate-600 text-sm">${r.vendor}</td>
-            <td class="p-4 text-slate-600 text-sm">${r.workContent}</td>
-            <td class="p-4 text-slate-700 font-medium text-sm">${r.amount}</td>
-            <td class="p-4 text-slate-500 text-sm">${r.paymentStatus}</td>
-            <td class="p-4 text-slate-500 text-xs italic">${r.notes}</td>
-            <td class="p-4 text-slate-700 font-medium text-sm">${r.amount2}</td>
-        </tr>
-    `).join('');
+    tbody.innerHTML = filteredData.map(r => {
+        const isOrphan = r.name === '（未指定人員）';
+        const isUnknown = r.notes && r.notes.includes('未建檔姓名');
+        const rowClass = isOrphan ? 'bg-red-50/50' : (isUnknown ? 'bg-amber-50/40' : '');
+        const nameDisplay = isOrphan
+            ? '<span class="text-red-600 font-bold bg-red-100/80 px-2 py-0.5 rounded text-xs">（未指定人員）</span>'
+            : (isUnknown
+                ? `<span class="text-amber-900 font-medium">${escapeHtml(r.name)}</span> <span class="text-[10px] bg-amber-100 text-amber-700 px-1 py-0.5 rounded font-normal">未建檔</span>`
+                : escapeHtml(r.name));
+
+        return `
+        <tr class="hover:bg-indigo-50/30 transition-colors group ${rowClass}">
+            <td class="p-4 text-slate-600 text-sm">${escapeHtml(r.date)}</td>
+            <td class="p-4 text-slate-800 font-medium text-sm">${nameDisplay}</td>
+            <td class="p-4 text-slate-600 font-mono text-xs">${escapeHtml(r.startTime)}</td>
+            <td class="p-4 text-slate-600 text-sm">${escapeHtml(r.location)}</td>
+            <td class="p-4 text-slate-600 text-sm">${escapeHtml(r.vendor)}</td>
+            <td class="p-4 text-slate-600 text-sm">${escapeHtml(r.workContent)}</td>
+            <td class="p-4 text-slate-700 font-medium text-sm">${escapeHtml(r.amount)}</td>
+            <td class="p-4 text-slate-500 text-sm">${escapeHtml(r.paymentStatus)}</td>
+            <td class="p-4 text-slate-500 text-xs italic">${escapeHtml(r.notes)}</td>
+            <td class="p-4 text-slate-700 font-medium text-sm">${escapeHtml(r.amount2)}</td>
+        </tr>`;
+    }).join('');
 }
 
 function handleDownloadCsv() {

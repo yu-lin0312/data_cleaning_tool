@@ -124,6 +124,22 @@
                                 轉換後的資料會顯示在這裡<br />
                                 <span class="text-sm opacity-70">可直接複製貼到 Excel</span>
                             </p>
+                        <!-- 解析核對提示盒 -->
+                        <div id="parseAuditBanner" class="hidden mx-6 mt-4 p-4 rounded-xl border transition-all">
+                            <div class="flex items-center justify-between cursor-pointer" onclick="toggleAuditDetails()">
+                                <div class="flex items-center gap-2.5" id="auditTitleContainer">
+                                    <!-- 狀態圖示與文字由 JS 動態填入 -->
+                                </div>
+                                <button id="auditToggleBtn" type="button" class="text-xs text-slate-500 hover:text-slate-700 flex items-center gap-1 font-medium">
+                                    <span>查看詳情</span>
+                                    <svg class="w-3.5 h-3.5 transition-transform duration-200" id="auditToggleIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <polyline points="6 9 12 15 18 9"></polyline>
+                                    </svg>
+                                </button>
+                            </div>
+                            <div id="auditDetails" class="hidden mt-3 pt-3 border-t border-slate-200/60 text-xs space-y-2">
+                                <!-- 詳細警示項目由 JS 填入 -->
+                            </div>
                         </div>
 
                         <div id="resultContainer" class="hidden flex-1 overflow-auto custom-scrollbar">
