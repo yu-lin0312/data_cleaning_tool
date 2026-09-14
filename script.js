@@ -523,9 +523,6 @@ window.addEventListener('DOMContentLoaded', () => {
 
         const duration = (performance.now() - startTime).toFixed(2);
         updateUIState(duration);
-
-        // 功能 A：原文區轉為解析預覽模式
-        renderSourceAnnotations(input.value, parsedData);
     });
 
     clearBtn.addEventListener('click', () => {
@@ -538,15 +535,6 @@ window.addEventListener('DOMContentLoaded', () => {
         updateUIState();
         const banner = document.getElementById('parseAuditBanner');
         if (banner) banner.classList.add('hidden');
-
-        // 恢復 textarea 顯示，隱藏 annotated view
-        restoreTextareaMode();
-    });
-
-    // 「回到編輯」按鈕
-    const backToEditBtn = document.getElementById('backToEditBtn');
-    backToEditBtn.addEventListener('click', () => {
-        restoreTextareaMode();
     });
 
     nameFilter.addEventListener('input', filterData);
@@ -757,7 +745,7 @@ function renderTable() {
 
         // 定位按鈕 SVG
         const locateBtnHtml = r.sourceLineStart
-            ? `<button class="locate-btn" onclick="scrollToSource(${r.sourceLineStart})" title="定位到原文第 ${r.sourceLineStart} 行">
+            ? `<button class="locate-btn" onclick="scrollToSource(${r.sourceLineStart}, ${r.sourceLineEnd || r.sourceLineStart})" title="定位到原文第 ${r.sourceLineStart} 行">
                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                    <circle cx="12" cy="12" r="3"/>
                    <path d="M12 2v4"/><path d="M12 18v4"/>
@@ -821,165 +809,44 @@ async function handleCopyToClipboard() {
     } catch (e) { alert('複製失敗'); }
 }
 
-// ==================== 原文⇔表格雙向比對 ====================
+// ==================== 原文與表格定位 ====================
 
 /**
- * 恢復 textarea 可編輯模式，隱藏 annotated view
+ * 從表格跳轉回左側原文輸入框，直接反白選取對應排班區塊並自動捲動
+ * @param {number} startLine - 原文場次起始行號（1-indexed）
+ * @param {number} [endLine] - 原文人員結束行號（1-indexed）
  */
-function restoreTextareaMode() {
+function scrollToSource(startLine, endLine) {
     const input = document.getElementById('inputText');
-    const annotated = document.getElementById('sourceAnnotated');
-    const backBtn = document.getElementById('backToEditBtn');
+    if (!input || !input.value) return;
 
-    input.classList.remove('hidden');
-    annotated.classList.add('hidden');
-    annotated.innerHTML = '';
-    backBtn.classList.add('hidden');
-}
+    endLine = endLine || startLine;
+    const lines = input.value.split('\n');
+    if (startLine < 1 || startLine > lines.length) return;
 
-/**
- * 功能 A：將原文區轉為解析預覽模式
- * 將 textarea 隱藏，在同位置渲染帶解析摘要卡片的 HTML
- * @param {string} rawText - 原始輸入文字
- * @param {Array} results - parseScheduleData 的解析結果
- */
-function renderSourceAnnotations(rawText, results) {
-    const input = document.getElementById('inputText');
-    const annotated = document.getElementById('sourceAnnotated');
-    const backBtn = document.getElementById('backToEditBtn');
-
-    if (!rawText || !results || results.length === 0) return;
-
-    const lines = rawText.split('\n');
-
-    // 建立行號 → 解析結果的映射（一行可能對應多筆結果）
-    const lineResultsMap = new Map();
-    for (const r of results) {
-        const key = r.sourceLineStart || 0;
-        if (!lineResultsMap.has(key)) {
-            lineResultsMap.set(key, []);
-        }
-        lineResultsMap.set(key, lineResultsMap.get(key).concat(r));
+    // 計算目標區塊在整個文字字串中的起點字元位置
+    let startIndex = 0;
+    for (let i = 0; i < startLine - 1; i++) {
+        startIndex += lines[i].length + 1; // +1 計入換行符號 \n
     }
 
-    // 逐行渲染
-    let html = '';
-    for (let i = 0; i < lines.length; i++) {
-        const lineNum = i + 1;
-        const line = lines[i];
-        const trimmed = line.trim();
-
-        // 跳過空行和分隔線
-        if (!trimmed || /^[-—─]+$/.test(trimmed)) {
-            continue;
-        }
-
-        // 判斷行類型
-        let blockClass = 'source-block';
-        if (isDateLine(line)) {
-            blockClass += ' source-block-date';
-        } else if (isScheduleLine(line)) {
-            blockClass += ' source-block-schedule';
-        }
-
-        html += `<div class="${blockClass}" data-source-line="${lineNum}">`;
-        html += `<div class="text-xs">${escapeHtml(trimmed)}</div>`;
-
-        // 如果此行有對應的解析結果，插入摘要卡片
-        const matchedResults = lineResultsMap.get(lineNum);
-        if (matchedResults && matchedResults.length > 0) {
-            for (const r of matchedResults) {
-                html += buildParseCard(r);
-            }
-        }
-
-        html += '</div>';
+    // 計算目標區塊在整個文字字串中的終點字元位置
+    const safeEndLine = Math.min(endLine, lines.length);
+    let endIndex = 0;
+    for (let i = 0; i < safeEndLine; i++) {
+        endIndex += lines[i].length + (i < lines.length - 1 ? 1 : 0);
     }
 
-    annotated.innerHTML = html;
+    // 原生反白聚焦選取
+    input.focus();
+    input.setSelectionRange(startIndex, endIndex);
 
-    // 切換顯示模式
-    input.classList.add('hidden');
-    annotated.classList.remove('hidden');
-    backBtn.classList.remove('hidden');
-}
-
-/**
- * 組裝單筆解析結果的摘要卡片 HTML
- * @param {Object} r - 解析結果物件
- * @returns {string} HTML 字串
- */
-function buildParseCard(r) {
-    const isOrphan = r.name === '（未指定人員）';
-    const isUnknown = r.notes && r.notes.includes('未建檔姓名');
-    const needsManual = r.notes && r.notes.includes('需人工確認金額');
-
-    // 姓名欄位
-    let nameClass = 'parse-card-field-value';
-    if (isOrphan) nameClass = 'parse-card-warn';
-    else if (isUnknown) nameClass = 'parse-card-unknown';
-
-    // 金額欄位
-    let amountClass = 'parse-card-field-value';
-    if (needsManual) amountClass = 'parse-card-warn';
-
-    return `
-        <div class="parse-card">
-            <span class="parse-card-field">
-                <span class="parse-card-field-label">姓名</span>
-                <span class="${nameClass}">${escapeHtml(r.name)}</span>
-            </span>
-            <span class="parse-card-field">
-                <span class="parse-card-field-label">金額</span>
-                <span class="${amountClass}">${escapeHtml(r.amount)}</span>
-            </span>
-            <span class="parse-card-field">
-                <span class="parse-card-field-label">內容</span>
-                <span class="parse-card-field-value">${escapeHtml(r.workContent)}</span>
-            </span>
-            ${r.location ? `<span class="parse-card-field">
-                <span class="parse-card-field-label">地點</span>
-                <span class="parse-card-field-value">${escapeHtml(r.location)}</span>
-            </span>` : ''}
-        </div>`;
-}
-
-/**
- * 功能 B：從表格跳回原文，捲動並閃爍高亮
- * @param {number} lineNum - 原文行號（1-indexed）
- */
-function scrollToSource(lineNum) {
-    const annotated = document.getElementById('sourceAnnotated');
-    const input = document.getElementById('inputText');
-
-    // 如果目前還在 textarea 模式，先切換到 annotated view
-    if (!input.classList.contains('hidden')) {
-        if (parsedData && parsedData.length > 0) {
-            renderSourceAnnotations(input.value, parsedData);
-        } else {
-            return;
-        }
-    }
-
-    // 找到對應行號的區塊
-    const target = annotated.querySelector(`[data-source-line="${lineNum}"]`);
-    if (!target) return;
-
-    // 捲動到可見位置
-    target.scrollIntoView({ behavior: 'smooth', block: 'center' });
-
-    // 移除任何既有的高亮（避免多次點擊殘留）
-    annotated.querySelectorAll('.source-block-highlight').forEach(el => {
-        el.classList.remove('source-block-highlight');
-    });
-
-    // 使用 requestAnimationFrame 確保 DOM 更新後才加上 class
-    requestAnimationFrame(() => {
-        target.classList.add('source-block-highlight');
-
-        // 動畫結束後移除 class（配合 CSS 2s 動畫）
-        setTimeout(() => {
-            target.classList.remove('source-block-highlight');
-        }, 2100);
+    // 計算大略垂直捲動位置，使目標行置中
+    const lineHeight = 21;
+    const targetScrollTop = Math.max(0, (startLine - 1) * lineHeight - (input.clientHeight / 2) + lineHeight);
+    input.scrollTo({
+        top: targetScrollTop,
+        behavior: 'smooth'
     });
 }
+
