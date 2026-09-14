@@ -492,6 +492,7 @@ function parseScheduleData(text) {
 
 // UI Logic
 let parsedData = [], filteredData = [];
+let filterIssuesOnly = false;
 
 window.addEventListener('DOMContentLoaded', () => {
     lucide.createIcons();
@@ -503,6 +504,7 @@ window.addEventListener('DOMContentLoaded', () => {
     const nameFilter = document.getElementById('nameFilter');
     const copyBtn = document.getElementById('copyBtn');
     const downloadCsvBtn = document.getElementById('downloadCsvBtn');
+    const filterIssuesBtn = document.getElementById('filterIssuesBtn');
 
     input.addEventListener('input', () => {
         parseBtn.disabled = !input.value.trim();
@@ -515,6 +517,7 @@ window.addEventListener('DOMContentLoaded', () => {
         // Clear cache for a fresh run
         calculationCache.clear();
 
+        filterIssuesOnly = false;
         parsedData = parseScheduleData(input.value);
         if (parsedData.audit) {
             renderAuditBanner(parsedData.audit);
@@ -530,12 +533,20 @@ window.addEventListener('DOMContentLoaded', () => {
         parsedData = [];
         filteredData = [];
         nameFilter.value = '';
+        filterIssuesOnly = false;
         parseBtn.disabled = true;
         updateInputCount();
         updateUIState();
         const banner = document.getElementById('parseAuditBanner');
         if (banner) banner.classList.add('hidden');
     });
+
+    if (filterIssuesBtn) {
+        filterIssuesBtn.addEventListener('click', () => {
+            filterIssuesOnly = !filterIssuesOnly;
+            filterData();
+        });
+    }
 
     nameFilter.addEventListener('input', filterData);
     copyBtn.addEventListener('click', handleCopyToClipboard);
@@ -580,12 +591,51 @@ function updateInputCount() {
     }
 }
 
+function isIssueRow(r) {
+    return r.name === '（未指定人員）' ||
+        (r.notes && (r.notes.includes('未建檔姓名') || r.notes.includes('需人工確認金額')));
+}
+
+function updateFilterIssuesBtn() {
+    const btn = document.getElementById('filterIssuesBtn');
+    const btnText = document.getElementById('filterIssuesBtnText');
+    if (!btn || !btnText) return;
+
+    const issueCount = parsedData.filter(isIssueRow).length;
+    if (issueCount === 0) {
+        btn.classList.add('hidden');
+        filterIssuesOnly = false;
+        return;
+    }
+
+    btn.classList.remove('hidden');
+    if (filterIssuesOnly) {
+        btn.className = 'py-2 px-3 rounded-lg text-xs font-semibold border border-amber-500 bg-amber-500 text-white transition-all flex items-center gap-1.5 shadow-sm cursor-pointer';
+        btnText.textContent = `顯示全部 (已篩出 ${filteredData.length} 筆)`;
+    } else {
+        btn.className = 'py-2 px-3 rounded-lg text-xs font-medium border border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 transition-all flex items-center gap-1.5 shadow-sm cursor-pointer';
+        btnText.textContent = `只看需確認 (${issueCount})`;
+    }
+}
+
+function quickFilterByName(name) {
+    const filterInput = document.getElementById('nameFilter');
+    if (!filterInput) return;
+    filterInput.value = name;
+    filterData();
+}
+
 function filterData() {
     const query = document.getElementById('nameFilter').value.trim();
-    filteredData = query ? parsedData.filter(r => r.name.includes(query)) : [...parsedData];
+    filteredData = parsedData.filter(r => {
+        const matchesQuery = !query || r.name.includes(query);
+        const matchesIssue = !filterIssuesOnly || isIssueRow(r);
+        return matchesQuery && matchesIssue;
+    });
     // Sort by date
     filteredData.sort((a, b) => new Date(a.date) - new Date(b.date));
     renderTable();
+    updateUIState();
 }
 
 function updateUIState(duration = null) {
@@ -597,11 +647,14 @@ function updateUIState(duration = null) {
     const badge = document.getElementById('countBadge');
     badge.classList.toggle('hidden', !hasData);
 
-    let badgeText = nameFilter.value ? `${filteredData.length} / ${parsedData.length} 筆` : `${parsedData.length} 筆`;
+    const isFiltered = (nameFilter && nameFilter.value.trim() !== '') || filterIssuesOnly;
+    let badgeText = isFiltered ? `${filteredData.length} / ${parsedData.length} 筆` : `${parsedData.length} 筆`;
     if (duration) {
         badgeText += ` (耗時 ${duration}ms)`;
     }
     badge.textContent = badgeText;
+
+    updateFilterIssuesBtn();
 }
 
 function escapeHtml(str) {
@@ -668,9 +721,9 @@ function renderAuditBanner(audit) {
                         </svg>
                         未建檔姓名（共 ${audit.unknownNames.length} 位）
                     </div>
-                    <p class="text-slate-600 mb-1.5 leading-relaxed">已暫先為其產生成員資料（防止漏算），但因不在姓名對照表中，請確認是否為新同仁：</p>
+                    <p class="text-slate-600 mb-1.5 leading-relaxed">已暫先為其產生成員資料（防止漏算），但因不在姓名對照表中，請確認是否為新同仁（點擊名字可在表格中篩選）：</p>
                     <div class="flex flex-wrap gap-1.5">
-                        ${audit.unknownNames.map(n => `<span class="px-2 py-0.5 bg-amber-100 text-amber-800 rounded font-medium border border-amber-300/60">${escapeHtml(n)}</span>`).join('')}
+                        ${audit.unknownNames.map(n => `<button type="button" onclick="quickFilterByName('${escapeHtml(n)}')" class="px-2 py-0.5 bg-amber-100 hover:bg-amber-200 text-amber-800 rounded font-medium border border-amber-300/60 cursor-pointer transition-colors text-xs" title="點擊在表格中篩選 ${escapeHtml(n)}">${escapeHtml(n)}</button>`).join('')}
                     </div>
                 </div>
             `;
@@ -687,9 +740,17 @@ function renderAuditBanner(audit) {
                         </svg>
                         未分配人員場次（共 ${audit.orphanSchedules.length} 場）
                     </div>
-                    <p class="text-slate-600 mb-1 leading-relaxed">以下場次有工作時間與內容，但下方未找到人員姓名，已暫列為「（未指定人員）」避免漏算：</p>
-                    <ul class="list-disc list-inside space-y-0.5 text-slate-700">
-                        ${audit.orphanSchedules.map(s => `<li>第 ${s.lineNum} 行：${escapeHtml(s.date)} ${escapeHtml(s.startTime || '')} ${escapeHtml(s.location || '')} ${escapeHtml(s.workContent || '')}</li>`).join('')}
+                    <p class="text-slate-600 mb-1.5 leading-relaxed">以下場次有工作時間與內容，但下方未找到人員姓名，已暫列為「（未指定人員）」避免漏算：</p>
+                    <ul class="space-y-1 text-slate-700 text-xs">
+                        ${audit.orphanSchedules.map(s => `
+                            <li class="flex items-center gap-2">
+                                <button type="button" onclick="scrollToSource(${s.lineNum})" class="text-xs font-mono bg-red-100 hover:bg-red-200 text-red-700 px-1.5 py-0.5 rounded border border-red-300/80 transition-colors flex items-center gap-1 flex-shrink-0 cursor-pointer" title="點擊跳轉到第 ${s.lineNum} 行">
+                                    <svg class="w-3 h-3 text-red-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v4"/><path d="M12 18v4"/><path d="M2 12h4"/><path d="M18 12h4"/></svg>
+                                    第 ${s.lineNum} 行
+                                </button>
+                                <span class="truncate">${escapeHtml(s.date)} ${escapeHtml(s.startTime || '')} ${escapeHtml(s.location || '')} ${escapeHtml(s.workContent || '')}</span>
+                            </li>
+                        `).join('')}
                     </ul>
                 </div>
             `;
@@ -705,9 +766,20 @@ function renderAuditBanner(audit) {
                         </svg>
                         未辨識或格式不符的文字行（共 ${audit.unrecognizedLines.length} 行）
                     </div>
-                    <p class="text-slate-500 mb-1 leading-relaxed">以下內容不符合日期、場次或人名格式，已被略過，請確認是否有排班被漏掉：</p>
-                    <ul class="space-y-1 font-mono text-slate-600">
-                        ${audit.unrecognizedLines.map(l => `<li class="bg-slate-100/80 px-2 py-1 rounded">第 ${l.lineNum} 行：${escapeHtml(l.text)} <span class="text-slate-400 font-sans">(${escapeHtml(l.reason)})</span></li>`).join('')}
+                    <p class="text-slate-500 mb-1.5 leading-relaxed">以下內容不符合日期、場次或人名格式，已被略過，請確認是否有排班被漏掉：</p>
+                    <ul class="space-y-1 font-mono text-slate-600 text-xs">
+                        ${audit.unrecognizedLines.map(l => `
+                            <li class="bg-slate-100/80 px-2 py-1.5 rounded flex items-center justify-between gap-2">
+                                <div class="flex items-center gap-2 overflow-hidden">
+                                    <button type="button" onclick="scrollToSource(${l.lineNum})" class="text-xs font-mono bg-amber-100 hover:bg-amber-200 text-amber-800 px-1.5 py-0.5 rounded border border-amber-300/80 transition-colors flex items-center gap-1 flex-shrink-0 cursor-pointer" title="點擊跳轉到第 ${l.lineNum} 行修改">
+                                        <svg class="w-3 h-3 text-amber-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v4"/><path d="M12 18v4"/><path d="M2 12h4"/><path d="M18 12h4"/></svg>
+                                        第 ${l.lineNum} 行
+                                    </button>
+                                    <span class="truncate">${escapeHtml(l.text)}</span>
+                                </div>
+                                <span class="text-slate-400 font-sans text-[11px] flex-shrink-0">(${escapeHtml(l.reason)})</span>
+                            </li>
+                        `).join('')}
                     </ul>
                 </div>
             `;
