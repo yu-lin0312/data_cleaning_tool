@@ -23,7 +23,8 @@ const MAIN_FEES = {
 
 const OTHER_FEES = {
     '頭七~滿七': 500, '女兒旬': 500, '接體空跑': 500, '退冰': 300, '驗屍/復驗': 500,
-    '佈置': 500, '扶棺': 500, '安主/安位': 1000, '返主': 1000, '顧SPA': 500, '教會出殯': 1200, '移靈': 500
+    '佈置': 500, '扶棺': 500, '安主/安位': 1000, '返主': 1000, '顧SPA': 500, '教會出殯': 1200, '移靈': 500,
+    '洗穿': 500
 };
 
 // Helper Functions
@@ -167,6 +168,7 @@ function _computeAmount(workContent, vendor, location) {
     if (/豎靈/.test(content)) return { amount: 500, needsManualCheck: false };
     if (/引魂/.test(content)) return { amount: 500, needsManualCheck: false };
     if (/佈置/.test(content)) return { amount: 500, needsManualCheck: false };
+    if (/洗穿/.test(content)) return { amount: 500, needsManualCheck: false };
     if (/安主|安位/.test(content)) return { amount: 1000, needsManualCheck: false };
     if (/返主/.test(content)) return { amount: 1000, needsManualCheck: false };
     if (/晉塔|進塔/.test(content)) return { amount: 1000, needsManualCheck: false };

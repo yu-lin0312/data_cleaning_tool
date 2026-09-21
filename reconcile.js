@@ -78,7 +78,7 @@ function looksLikeDate(str) {
  */
 function autoDetectFieldMap(cells) {
     const map = {};
-    const workKeywords = ['接體', '出殯', '入殮', '洗身', '禮生', '冷凍', '協助', '告別式'];
+    const workKeywords = ['接體', '出殯', '入殮', '洗身', '洗穿', '禮生', '冷凍', '協助', '告別式'];
 
     // 1. 找日期欄
     for (let i = 0; i < cells.length; i++) {
