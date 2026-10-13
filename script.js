@@ -1,7 +1,43 @@
 // Data Configuration
-const projectVendors = ['松佑', '尚閔', '龍霖', '銘棋', '高盛', '龍圓', '新光人生', '采邑', '鴻德', '祐安', '和榕', '協和', '上德', '高誠', '公庭', '福祥', '出云', '恆善蔡嘉薇', '群豐東昇', '南華靜觀', '南都', '榮祥', '南華'];
-const locationTypoFixes = { '人本': '仁本', '橋殯': '橋頭殯儀館', '會館': '龍巖會館' };
+const projectVendors = ['松佑', '尚閔', '龍霖', '銘棋', '高盛', '龍圓', '采邑', '鴻德', '祐安', '和榕', '協和', '上德', '高誠', '公庭', '福祥', '出云', '恆善蔡嘉薇', '群豐東昇', '南華靜觀', '南都', '榮祥', '南華'];
+const locationTypoFixes = { '人本': '仁本', '橋殯': '橋頭殯儀館', '會館': '龍巖會館', '光門': '光之門' };
 const vendorTypoFixes = { '新光': '新光人生', '仁本': '台灣仁本' };
+
+// 高雄專屬地名與龍巖常見駐點清單（用於自動識別高雄龍巖）
+const KAOHSIUNG_LOCATIONS = [
+    '高雄', '光門', '光之門', '會館', '龍巖會館', '仁武', '鼎金', '覆鼎金', '橋殯', '橋頭殯儀館', '九龍',
+    '第一殯儀館', '一殯', '第二殯儀館', '二殯',
+    '大社', '岡山', '橋頭', '楠梓', '左營', '三民', '苓雅', '新興', '前金', '鹽埕', '鼓山', '旗津',
+    '前鎮', '小港', '鳳山', '鳥松', '大寮', '林園', '大樹', '旗山', '美濃', '燕巢', '阿蓮', '路竹',
+    '湖內', '梓官', '彌陀', '永安', '六龜', '甲仙', '杉林', '內門', '茂林', '桃源', '那瑪夏'
+];
+
+function isKaohsiungLocation(loc) {
+    if (!loc) return false;
+    return KAOHSIUNG_LOCATIONS.some(k => loc.includes(k));
+}
+
+/**
+ * 智慧解析與校正地點與廠商（方案 B：支援順序顛倒容錯與自動轉換高雄龍巖）
+ */
+function resolveLocationAndVendor(locInput, vendorInput) {
+    let location = fixLocationTypo((locInput || '').trim());
+    let vendor = fixVendorTypo((vendorInput || '').trim().replace(/[哥姐]/g, ''));
+
+    // 順序容錯（方案 B）：若地點填了龍巖，而廠商填了高雄地名/駐點
+    if (/^龍巖/.test(location) && isKaohsiungLocation(vendor)) {
+        const temp = location;
+        location = fixLocationTypo(vendor);
+        vendor = temp;
+    }
+
+    // 龍巖公司判斷：只要公司是龍巖（非台南龍巖等其他縣市），且地點是高雄地名或光之門/會館，自動轉為高雄龍巖
+    if (/^龍巖/.test(vendor) && !/台南龍巖/.test(vendor) && isKaohsiungLocation(location)) {
+        vendor = '高雄龍巖';
+    }
+
+    return { location, vendor };
+}
 const nameMapping = {
     '勳': '王健勳', '健勳': '王健勳', '千': '林千智', '千智': '林千智', '黑': '郭育帆', '小黑': '郭育帆',
     '潘': '潘信安', '小潘': '潘信安', '魚': '謝瑋育', '鮪魚': '謝瑋育', '郭': '郭鴻億', '小郭': '郭鴻億',
@@ -30,8 +66,22 @@ const OTHER_FEES = {
 
 // Helper Functions
 function isProjectVendor(vendor) { return vendor && projectVendors.some(pv => vendor.includes(pv)); }
-function fixLocationTypo(location) { if (!location) return location; let fixed = location; for (const [typo, correct] of Object.entries(locationTypoFixes)) fixed = fixed.replace(typo, correct); return fixed; }
-function fixVendorTypo(vendor) { if (!vendor) return vendor; let fixed = vendor; for (const [typo, correct] of Object.entries(vendorTypoFixes)) fixed = fixed.replace(typo, correct); return fixed; }
+function fixLocationTypo(location) {
+    if (!location) return location;
+    let fixed = location;
+    for (const [typo, correct] of Object.entries(locationTypoFixes)) {
+        if (!fixed.includes(correct)) fixed = fixed.replace(typo, correct);
+    }
+    return fixed;
+}
+function fixVendorTypo(vendor) {
+    if (!vendor) return vendor;
+    let fixed = vendor;
+    for (const [typo, correct] of Object.entries(vendorTypoFixes)) {
+        if (!fixed.includes(correct)) fixed = fixed.replace(typo, correct);
+    }
+    return fixed;
+}
 function convertName(name) { const trimmed = name.trim(); return preservedNames.includes(trimmed) ? trimmed : (nameMapping[trimmed] || trimmed); }
 function formatTime(timeStr) { let cleaned = timeStr.replace(/」/g, '0').replace(/[:\s]/g, ''); if (cleaned.length === 1) return '0' + cleaned + '00'; if (cleaned.length === 2) return cleaned + '00'; if (cleaned.length === 3) return '0' + cleaned; if (cleaned.length === 4) return cleaned; return timeStr; }
 
@@ -96,8 +146,14 @@ function parseScheduleLine(line) {
         const rest = frontMatch[2];
         // 處理時間後面緊黏地點的情況 (如 06:30橋殯 → 時間=06:30, rest=橋殯 ...)
         const parts = rest.split(/\s+/);
-        if (parts.length >= 3) return { time, location: fixLocationTypo(parts[0]), vendor: fixVendorTypo(parts[1]), workContent: normalizeWorkContent(parts.slice(2).join(' ')) };
-        if (parts.length === 2) return { time, location: fixLocationTypo(parts[0]), vendor: fixVendorTypo(parts[1]), workContent: '' };
+        if (parts.length >= 3) {
+            const { location, vendor } = resolveLocationAndVendor(parts[0], parts[1]);
+            return { time, location, vendor, workContent: normalizeWorkContent(parts.slice(2).join(' ')) };
+        }
+        if (parts.length === 2) {
+            const { location, vendor } = resolveLocationAndVendor(parts[0], parts[1]);
+            return { time, location, vendor, workContent: '' };
+        }
         return { time, location: fixLocationTypo(rest), vendor: '', workContent: '' };
     }
 
@@ -106,18 +162,23 @@ function parseScheduleLine(line) {
     if (backMatch) {
         const time = formatTime(backMatch[2]);
         const parts = backMatch[1].split(/\s+/);
-        if (parts.length >= 3) return { time, location: fixLocationTypo(parts[0]), vendor: fixVendorTypo(parts[1]), workContent: normalizeWorkContent(parts.slice(2).join(' ')) };
-        if (parts.length === 2) return { time, location: fixLocationTypo(parts[0]), vendor: fixVendorTypo(parts[1]), workContent: '' };
+        if (parts.length >= 3) {
+            const { location, vendor } = resolveLocationAndVendor(parts[0], parts[1]);
+            return { time, location, vendor, workContent: normalizeWorkContent(parts.slice(2).join(' ')) };
+        }
+        if (parts.length === 2) {
+            const { location, vendor } = resolveLocationAndVendor(parts[0], parts[1]);
+            return { time, location, vendor, workContent: '' };
+        }
         return { time, location: fixLocationTypo(backMatch[1]), vendor: '', workContent: '' };
     }
 
     // 格式三：廠商→時間→地點→工作 → 松佑 13:30 靜心10 半日
     const vendorFirstMatch = trimmed.match(/^([\u4e00-\u9fa5]+)\s+(\d{1,2}[:\s]?\d{2})\s+(.+)$/);
     if (vendorFirstMatch) {
-        const vendor = fixVendorTypo(vendorFirstMatch[1]);
         const time = formatTime(vendorFirstMatch[2]);
         const parts = vendorFirstMatch[3].split(/\s+/);
-        const location = fixLocationTypo(parts[0]);
+        const { location, vendor } = resolveLocationAndVendor(parts[0], vendorFirstMatch[1]);
         const workContent = normalizeWorkContent(parts.slice(1).join(' '));
         return { time, location, vendor, workContent };
     }
@@ -140,7 +201,7 @@ function _computeAmount(workContent, vendor, location) {
     if ((/柳營/.test(location) || /新營/.test(location)) && /禮生出殯/.test(content)) return { amount: 2000, needsManualCheck: false };
     if ((/台南聖恩/.test(vendor) || /台南龍巖/.test(vendor)) && /禮生出殯/.test(content)) return { amount: 1500, needsManualCheck: false };
     if (/高雄聖恩/.test(vendor) && /禮生出殯/.test(content)) return { amount: 1400, needsManualCheck: false };
-    if (/高雄龍巖/.test(vendor) && /禮生扶棺/.test(content)) return { amount: 1400, needsManualCheck: false };
+    if (/高雄龍巖/.test(vendor) && /禮生扶棺|禮生扛棺/.test(content)) return { amount: 1400, needsManualCheck: false };
 
     // Combinations
     if (/洗穿/.test(content) && /化妝/.test(content) && /入殮出殯/.test(content)) return { amount: 2400, needsManualCheck: false };
