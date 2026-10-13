@@ -350,6 +350,8 @@ function parseScheduleData(text) {
             sourceLineEnd: lastScheduleLineNum,
         });
         lastSchedule = null;
+        currentCaseName = '';
+        currentRitualist = '';
     }
 
     for (let i = 0; i < lines.length; i++) {
@@ -524,6 +526,8 @@ function parseScheduleData(text) {
                         });
                     }
                     lastSchedule = null;
+                    currentCaseName = '';
+                    currentRitualist = '';
                 } else {
                     unrecognizedLines.push({ lineNum, text: line, reason: '未能識別出有效人員姓名' });
                 }
