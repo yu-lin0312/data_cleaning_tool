@@ -61,7 +61,7 @@ const MAIN_FEES = {
 const OTHER_FEES = {
     '頭七~滿七': 500, '女兒旬': 500, '接體空跑': 500, '退冰': 300, '驗屍/復驗': 500,
     '佈置': 500, '扶棺': 500, '安主/安位': 1000, '返主': 1000, '顧SPA': 500, '教會出殯': 1200, '移靈': 500,
-    '洗穿': 500
+    '移體': 500, '洗穿': 500
 };
 
 // Helper Functions
@@ -238,7 +238,7 @@ function _computeAmount(workContent, vendor, location) {
     if (/招待/.test(content)) return { amount: 1200, needsManualCheck: false };
     if (/拼廳/.test(content)) return { amount: 1200, needsManualCheck: false };
     if (/教會出殯/.test(content)) return { amount: 1200, needsManualCheck: false };
-    if (/移靈/.test(content)) return { amount: 500, needsManualCheck: false };
+    if (/移靈|移體/.test(content)) return { amount: 500, needsManualCheck: false };
 
     // Standard Items
     if (/扶棺/.test(content) && !/禮生/.test(content)) return { amount: 500, needsManualCheck: false };
@@ -266,7 +266,7 @@ const WORK_KEYWORDS = [
     '入殮', '出殯', '禮生', '功德', '接體', '退冰', '驗屍', '復驗', '相驗', '豎靈', '引魂', '佈置',
     '安主', '安位', '返主', '晉塔', '進塔', '招待', '拼廳', '扶棺', '洗身', '洗穿', '化妝', '更衣',
     '燒庫', '回洗', '加衣', '火化', '扛棺', '扛夫', '半日', '午夜', '藥懺', '頭七', '二七', '三七',
-    '五七', '滿七', '女兒旬', '女兒七', 'SPA', 'spa', '移靈', '教會', '送火', '入出', '禮出',
+    '五七', '滿七', '女兒旬', '女兒七', 'SPA', 'spa', '移靈', '移體', '教會', '送火', '入出', '禮出',
     '禮扶', '禮扛', '入冰', '換罐', '樹葬', '協助', '告別式', '調'
 ];
 
