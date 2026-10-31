@@ -356,6 +356,38 @@ function parseScheduleData(text) {
         currentRitualist = '';
     }
 
+    // 輔助函式：將目前場次依人員清單轉為結果列並清空暫存
+    function commitScheduleWithNames(names, endLineNum) {
+        if (!lastSchedule) return;
+        for (const name of names) {
+            const fullName = convertName(name);
+            const isUnknown = unknownNamesSet.has(name);
+            const { amount, needsManualCheck } = calculateAmount(lastSchedule.workContent, lastSchedule.vendor, lastSchedule.location);
+            let notes = currentRitualist || currentCaseName || '';
+            if (isUnknown) notes = (notes ? notes + '；' : '') + `未建檔姓名(${name})`;
+            if (needsManualCheck) notes = (notes ? notes + '；' : '') + '需人工確認金額';
+            if (isProjectVendor(lastSchedule.vendor)) notes = (notes ? notes + '；' : '') + '專案';
+
+            results.push({
+                date: lastSchedule.date,
+                name: fullName,
+                startTime: lastSchedule.startTime,
+                location: lastSchedule.location,
+                vendor: lastSchedule.vendor,
+                workContent: lastSchedule.workContent,
+                amount: amount.toString(),
+                paymentStatus: '未收',
+                notes: notes,
+                amount2: amount.toString(),
+                sourceLineStart: lastScheduleLineNum,
+                sourceLineEnd: endLineNum,
+            });
+        }
+        lastSchedule = null;
+        currentCaseName = '';
+        currentRitualist = '';
+    }
+
     for (let i = 0; i < lines.length; i++) {
         const lineNum = i + 1;
         const line = lines[i];
@@ -400,31 +432,7 @@ function parseScheduleData(text) {
                     lastScheduleLineNum = lineNum;
 
                     if (names.length > 0) {
-                        for (let name of names) {
-                            const fullName = convertName(name);
-                            const isUnknown = unknownNamesSet.has(name);
-                            const { amount, needsManualCheck } = calculateAmount(lastSchedule.workContent, lastSchedule.vendor, lastSchedule.location);
-                            let notes = currentRitualist || currentCaseName || '';
-                            if (isUnknown) notes = (notes ? notes + '；' : '') + `未建檔姓名(${name})`;
-                            if (needsManualCheck) notes = (notes ? notes + '；' : '') + '需人工確認金額';
-                            if (isProjectVendor(lastSchedule.vendor)) notes = (notes ? notes + '；' : '') + '專案';
-
-                            results.push({
-                                date: lastSchedule.date,
-                                name: fullName,
-                                startTime: lastSchedule.startTime,
-                                location: lastSchedule.location,
-                                vendor: lastSchedule.vendor,
-                                workContent: lastSchedule.workContent,
-                                amount: amount.toString(),
-                                paymentStatus: '未收',
-                                notes: notes,
-                                amount2: amount.toString(),
-                                sourceLineStart: lastScheduleLineNum,
-                                sourceLineEnd: lineNum,
-                            });
-                        }
-                        lastSchedule = null;
+                        commitScheduleWithNames(names, lineNum);
                     }
                 }
             } else {
@@ -453,31 +461,7 @@ function parseScheduleData(text) {
                 lastScheduleLineNum = lineNum;
 
                 if (names.length > 0) {
-                    for (let name of names) {
-                        const fullName = convertName(name);
-                        const isUnknown = unknownNamesSet.has(name);
-                        const { amount, needsManualCheck } = calculateAmount(lastSchedule.workContent, lastSchedule.vendor, lastSchedule.location);
-                        let notes = currentRitualist || currentCaseName || '';
-                        if (isUnknown) notes = (notes ? notes + '；' : '') + `未建檔姓名(${name})`;
-                        if (needsManualCheck) notes = (notes ? notes + '；' : '') + '需人工確認金額';
-                        if (isProjectVendor(lastSchedule.vendor)) notes = (notes ? notes + '；' : '') + '專案';
-
-                        results.push({
-                            date: lastSchedule.date,
-                            name: fullName,
-                            startTime: lastSchedule.startTime,
-                            location: lastSchedule.location,
-                            vendor: lastSchedule.vendor,
-                            workContent: lastSchedule.workContent,
-                            amount: amount.toString(),
-                            paymentStatus: '未收',
-                            notes: notes,
-                            amount2: amount.toString(),
-                            sourceLineStart: lastScheduleLineNum,
-                            sourceLineEnd: lineNum,
-                        });
-                    }
-                    lastSchedule = null;
+                    commitScheduleWithNames(names, lineNum);
                 }
                 currentCaseName = '';
                 currentRitualist = '';
@@ -503,33 +487,7 @@ function parseScheduleData(text) {
                 }
 
                 if (names.length > 0) {
-                    for (let name of names) {
-                        const fullName = convertName(name);
-                        const isUnknown = unknownNamesSet.has(name);
-                        const { amount, needsManualCheck } = calculateAmount(lastSchedule.workContent, lastSchedule.vendor, lastSchedule.location);
-                        let notes = currentRitualist || currentCaseName || '';
-                        if (isUnknown) notes = (notes ? notes + '；' : '') + `未建檔姓名(${name})`;
-                        if (needsManualCheck) notes = (notes ? notes + '；' : '') + '需人工確認金額';
-                        if (isProjectVendor(lastSchedule.vendor)) notes = (notes ? notes + '；' : '') + '專案';
-
-                        results.push({
-                            date: lastSchedule.date,
-                            name: fullName,
-                            startTime: lastSchedule.startTime,
-                            location: lastSchedule.location,
-                            vendor: lastSchedule.vendor,
-                            workContent: lastSchedule.workContent,
-                            amount: amount.toString(),
-                            paymentStatus: '未收',
-                            notes: notes,
-                            amount2: amount.toString(),
-                            sourceLineStart: lastScheduleLineNum,
-                            sourceLineEnd: lineNum,
-                        });
-                    }
-                    lastSchedule = null;
-                    currentCaseName = '';
-                    currentRitualist = '';
+                    commitScheduleWithNames(names, lineNum);
                 } else {
                     unrecognizedLines.push({ lineNum, text: line, reason: '未能識別出有效人員姓名' });
                 }
@@ -928,6 +886,8 @@ function handleDownloadCsv() {
     URL.revokeObjectURL(url);
 }
 
+let copyBtnTimer = null;
+
 async function handleCopyToClipboard() {
     const rows = filteredData.map(r => [
         r.date, r.name, r.startTime, r.location, r.vendor, r.workContent, r.amount, r.paymentStatus, r.notes, r.amount2
@@ -936,17 +896,20 @@ async function handleCopyToClipboard() {
     try {
         await navigator.clipboard.writeText(rows.join('\n'));
         const btn = document.getElementById('copyBtn');
-        const oldHTML = btn.innerHTML;
-        const oldClass = btn.className;
+        const defaultHTML = '<i data-lucide="copy" class="w-4 h-4"></i> 複製';
+        const defaultClass = 'bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600 text-white py-2 px-4 rounded-lg text-sm flex items-center gap-2 transition-all shadow-md hover:shadow-lg font-medium';
+
+        if (copyBtnTimer) clearTimeout(copyBtnTimer);
 
         btn.innerHTML = '<i data-lucide="check" class="w-4 h-4"></i> 已複製';
-        btn.className = 'bg-emerald-500 hover:bg-emerald-600 text-white py-2 px-4 rounded-lg text-sm flex items-center gap-2 transition-all shadow-md';
+        btn.className = 'bg-emerald-500 hover:bg-emerald-600 text-white py-2 px-4 rounded-lg text-sm flex items-center gap-2 transition-all shadow-md font-medium';
         lucide.createIcons();
 
-        setTimeout(() => {
-            btn.innerHTML = oldHTML;
-            btn.className = oldClass;
+        copyBtnTimer = setTimeout(() => {
+            btn.innerHTML = defaultHTML;
+            btn.className = defaultClass;
             lucide.createIcons();
+            copyBtnTimer = null;
         }, 2000);
     } catch (e) { alert('複製失敗'); }
 }

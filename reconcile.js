@@ -537,6 +537,8 @@ function getStatusText(status) {
     return map[status] || '';
 }
 
+let reconcileCopyTimer = null;
+
 /**
  * 複製差異清單（Tab 分隔），可直接貼到 Excel
  */
@@ -561,17 +563,26 @@ async function handleReconcileCopy() {
         await navigator.clipboard.writeText(content);
         const btn = document.getElementById('reconcileCopyBtn');
         const successMsg = document.getElementById('reconcileCopySuccess');
-        const oldHTML = btn.innerHTML;
-        const oldClass = btn.className;
+        const defaultHTML = `
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round">
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+            </svg>
+            複製差異清單（貼到 Excel）`;
+        const defaultClass = 'bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600 text-white py-2 px-5 rounded-lg text-sm flex items-center gap-2 transition-all shadow-md hover:shadow-lg font-medium';
+
+        if (reconcileCopyTimer) clearTimeout(reconcileCopyTimer);
 
         btn.innerHTML = '<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg> 已複製！';
         btn.className = 'bg-emerald-500 hover:bg-emerald-600 text-white py-2 px-5 rounded-lg text-sm flex items-center gap-2 transition-all shadow-md font-medium';
         successMsg.classList.remove('hidden');
 
-        setTimeout(() => {
-            btn.innerHTML = oldHTML;
-            btn.className = oldClass;
+        reconcileCopyTimer = setTimeout(() => {
+            btn.innerHTML = defaultHTML;
+            btn.className = defaultClass;
             successMsg.classList.add('hidden');
+            reconcileCopyTimer = null;
         }, 3000);
     } catch (e) {
         alert('複製失敗，請手動框選表格後複製。');
